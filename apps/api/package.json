@@ -1,0 +1,35 @@
+{
+  "name": "@urban-furniture/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:migrate": "node src/db/migrate.js",
+    "db:seed": "node src/db/seed-admin.js && node src/db/seed-master-data.js",
+    "db:seed:admin": "node src/db/seed-admin.js",
+    "db:seed:master-data": "node src/db/seed-master-data.js",
+    "test": "jest",
+    "test:e2e": "jest"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.15.2",
+    "pg": "^8.13.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "maxWorkers": 1,
+    "globalSetup": "<rootDir>/test/globalSetup.js",
+    "globalTeardown": "<rootDir>/test/globalTeardown.js"
+  }
+}

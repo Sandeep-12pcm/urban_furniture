@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pg_isready)",
+      "Bash(brew services *)",
+      "Bash(psql -l)"
+    ]
+  }
+}
