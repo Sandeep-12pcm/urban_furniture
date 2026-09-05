@@ -4,15 +4,23 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "server"
   ],
   "scripts": {
     "dev": "npm run dev -w apps/api & npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
+    "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
     "test": "npm run test -w apps/api",
-    "db:migrate": "npm run db:migrate -w apps/api",
-    "db:seed": "npm run db:seed -w apps/api"
+    "db:migrate": "npx prisma migrate dev",
+    "db:seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.10.0"
+  },
+  "devDependencies": {
+    "prisma": "^7.10.0"
   }
 }
