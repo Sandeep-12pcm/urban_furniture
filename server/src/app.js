@@ -31,10 +31,12 @@ function createApp() {
   const contactRoutes = require('./routes/contact.routes');
   const productRoutes = require('./routes/product.routes');
   const accountRoutes = require('./routes/account.routes');
+  const journalRoutes = require('./routes/journal.routes');
   app.use('/api/auth', authRoutes);
   app.use('/api/contacts', contactRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/accounts', accountRoutes);
+  app.use('/api/journals', journalRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
