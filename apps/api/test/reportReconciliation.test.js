@@ -121,4 +121,44 @@ describe('Report reconciliation: purchase to sale workflow', () => {
     const actions = audit.body.auditLogs.map((row) => row.action);
     expect(actions).toEqual(expect.arrayContaining(['VENDOR_BILL_POSTED', 'VENDOR_PAYMENT_RECORDED', 'STOCK_IN_CREATED', 'CUSTOMER_INVOICE_POSTED', 'CUSTOMER_PAYMENT_RECORDED', 'STOCK_OUT_CREATED']));
   });
+
+  // Regression: reportingService's LEFT JOIN aggregates must filter by
+  // FILTER(WHERE ...) on the aggregate, never by attaching the status/date
+  // condition to the second JOIN's own ON clause — that pattern still sums
+  // a DRAFT or CANCELLED entry's lines (the entry-level join fails, but the
+  // line-level join already matched). A single un-posted draft entry must
+  // never move Trial Balance, P&L, or Balance Sheet totals.
+  test('draft journal entries never leak into Trial Balance, P&L, or Balance Sheet', async () => {
+    const before = await Promise.all([
+      request(app).get('/api/reports/trial-balance').set('Cookie', adminCookie).expect(200),
+      request(app).get('/api/reports/profit-loss').set('Cookie', adminCookie).expect(200),
+      request(app).get('/api/reports/balance-sheet').set('Cookie', adminCookie).expect(200),
+    ]);
+
+    const draft = await request(app).post('/api/journal-entries').set('Cookie', adminCookie).send({
+      journalId: (await pool.query("SELECT id FROM journals WHERE type='CASH'")).rows[0].id,
+      entryDate: '2026-09-05',
+      lines: [
+        { accountId: accounts['5001'], debit: '999999.00', credit: '0.00' },
+        { accountId: accounts['1001'], debit: '0.00', credit: '999999.00' },
+      ],
+    }).expect(201);
+    expect(draft.body.journalEntry.status).toBe('DRAFT');
+
+    const after = await Promise.all([
+      request(app).get('/api/reports/trial-balance').set('Cookie', adminCookie).expect(200),
+      request(app).get('/api/reports/profit-loss').set('Cookie', adminCookie).expect(200),
+      request(app).get('/api/reports/balance-sheet').set('Cookie', adminCookie).expect(200),
+    ]);
+
+    expect(after[0].body.totals).toEqual(before[0].body.totals);
+    expect(after[1].body.totalExpenses).toBe(before[1].body.totalExpenses);
+    expect(after[2].body).toMatchObject({ totalAssets: before[2].body.totalAssets, balanced: true });
+    expect(after[2].body.balanced).toBe(true);
+
+    // Posting it, however, must move all three exactly by the entry amount.
+    await request(app).post(`/api/journal-entries/${draft.body.journalEntry.id}/post`).set('Cookie', adminCookie).expect(200);
+    const posted = await request(app).get('/api/reports/profit-loss').set('Cookie', adminCookie).expect(200);
+    expect(Number(posted.body.totalExpenses)).toBe(Number(before[1].body.totalExpenses) + 999999);
+  });
 });

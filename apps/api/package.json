@@ -6,7 +6,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "db:migrate": "node src/db/migrate.js",
-    "db:seed": "node src/db/seed-admin.js && node src/db/seed-master-data.js",
+    "db:seed": "node src/db/seed-admin.js && node src/db/seed-master-data.js && node src/db/seed-300.js",
     "db:seed:admin": "node src/db/seed-admin.js",
     "db:seed:master-data": "node src/db/seed-master-data.js",
     "db:seed:300": "node src/db/seed-300.js",

@@ -24,6 +24,7 @@ export function Signup({ onLogin, navigate }) {
 
   async function submit(event) {
     event.preventDefault();
+    alert('Signup is disabled in this demo. Please contact the administrator to enable it.');
     if (!signupEnabled) return setError('Public signup is disabled. Please contact the administrator.');
 
     const validationError = validateSignup(form);

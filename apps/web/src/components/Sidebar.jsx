@@ -2,7 +2,6 @@ import {
   BarChart3,
   Boxes,
   Building2,
-  ChevronRight,
   LandmarkIcon,
   LayoutDashboard,
   NotebookText,
@@ -146,19 +145,6 @@ export function Sidebar({ user, open, onClose }) {
           {user.role === 'ADMIN' && (
             <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Administration</p><div className="space-y-1"><NavItem to="/admin/administration" label="System Administration" icon={LandmarkIcon} /></div></div>
           )}
-
-          <div>
-            <p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Coming Soon</p>
-            <div className="space-y-1">
-              <div className="flex cursor-not-allowed items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white/35">
-                <span className="flex items-center gap-3">
-                  <BarChart3 className="h-4 w-4" />
-                  Financial Reports
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </div>
-            </div>
-          </div>
         </nav>
       </aside>
     </>
