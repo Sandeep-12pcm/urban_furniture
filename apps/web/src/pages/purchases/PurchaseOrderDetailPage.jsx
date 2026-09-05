@@ -43,7 +43,7 @@ export function PurchaseOrderDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id]);
 
   function startEdit() {
     setEditForm({

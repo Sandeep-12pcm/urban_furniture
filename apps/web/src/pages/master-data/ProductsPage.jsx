@@ -237,7 +237,7 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
       setErrors({});
       setSubmitError('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open, product]);
 
   async function submit(event) {

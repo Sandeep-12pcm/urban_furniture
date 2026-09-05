@@ -67,7 +67,7 @@ function validateAmount(amount) {
 // Customer payments: Customer Invoice -> Cash/Bank -> reduces Debtors.
 // Debit Cash/Bank, Credit Debtors (1003).
 // -------------------------------------------------------------------------
-async function recordCustomerPayment(db, userId, invoiceId, body) {
+async function recordCustomerPaymentLegacy(db, userId, invoiceId, body) {
   const amount = validateAmount(body.amount);
   if (!body.paymentDate) throw fail('Payment date is required.');
   if (!['CASH', 'BANK'].includes(body.method)) throw fail('Payment method must be Cash or Bank.');
@@ -126,7 +126,7 @@ async function recordCustomerPayment(db, userId, invoiceId, body) {
 // Vendor payments: Vendor Bill -> Cash/Bank -> reduces Creditors.
 // Debit Creditors (2001), Credit Cash/Bank.
 // -------------------------------------------------------------------------
-async function recordVendorPayment(db, userId, billId, body) {
+async function recordVendorPaymentLegacy(db, userId, billId, body) {
   const amount = validateAmount(body.amount);
   if (!body.paymentDate) throw fail('Payment date is required.');
   if (!['CASH', 'BANK'].includes(body.method)) throw fail('Payment method must be Cash or Bank.');
@@ -181,16 +181,64 @@ async function recordVendorPayment(db, userId, billId, body) {
   });
 }
 
+// Payment, journal entry, allocation status, and audit record must share one
+// database transaction. The earlier implementations above document the two
+// accounting directions; this common implementation keeps the actual write
+// path atomic and locks the invoice/bill against concurrent overpayment.
+async function recordPayment(db, userId, targetId, body, type) {
+  const amount = validateAmount(body.amount);
+  if (!body.paymentDate) throw fail('Payment date is required.');
+  if (!['CASH', 'BANK'].includes(body.method)) throw fail('Payment method must be Cash or Bank.');
+  const isCustomer = type === 'CUSTOMER';
+  const table = isCustomer ? 'customer_invoices' : 'vendor_bills';
+  const targetColumn = isCustomer ? 'customer_invoice_id' : 'vendor_bill_id';
+  const partyColumn = isCustomer ? 'customer_id' : 'vendor_id';
+  const targetLabel = isCustomer ? 'Customer Invoice' : 'Vendor Bill';
+  const counterpartCode = isCustomer ? '1003' : '2001';
+
+  return withTransaction(db, async (tx) => {
+    const target = await tx.query(`SELECT id, ${partyColumn} AS party_id, total_amount, status FROM ${table} WHERE id=$1 FOR UPDATE`, [targetId]);
+    if (!target.rowCount) throw fail(`${targetLabel} not found.`, 404);
+    const document = target.rows[0];
+    if (document.status !== 'POSTED') throw fail(`Only a Posted ${targetLabel} can receive a payment.`);
+    const paid = await tx.query(`SELECT COALESCE(SUM(amount),0)::text AS total FROM payments WHERE ${targetColumn}=$1 AND status='POSTED'`, [targetId]);
+    const outstanding = Number(document.total_amount) - Number(paid.rows[0].total);
+    if (outstanding <= 0) throw fail(`This ${targetLabel} is already fully paid.`);
+    if (amount > outstanding) throw fail(`Payment amount cannot exceed the outstanding balance of ${outstanding.toFixed(2)}.`);
+
+    const paymentJournalId = await cashOrBankAccount(tx, body.method);
+    const accounts = await tx.query(`SELECT j.default_account_id AS "cashBankAccountId", (SELECT id FROM accounts WHERE account_code=$2 AND status='ACTIVE') AS "counterpartAccountId" FROM journals j WHERE j.id=$1`, [paymentJournalId, counterpartCode]);
+    const { cashBankAccountId, counterpartAccountId } = accounts.rows[0];
+    if (!counterpartAccountId) throw fail(`${isCustomer ? 'Debtors' : 'Creditors'} account (${counterpartCode}) must be configured before recording payments.`);
+    const value = amount.toFixed(2);
+    const entry = await accounting.createDraftEntry(tx, userId, { journalId: paymentJournalId, entryDate: body.paymentDate, reference: `Payment for ${targetId}`, description: isCustomer ? 'Customer payment received' : 'Vendor payment made', lines: isCustomer ? [
+      { accountId: cashBankAccountId, debit: value, credit: '0.00' }, { accountId: counterpartAccountId, debit: '0.00', credit: value },
+    ] : [
+      { accountId: counterpartAccountId, debit: value, credit: '0.00' }, { accountId: cashBankAccountId, debit: '0.00', credit: value },
+    ] });
+    await accounting.postEntry(tx, entry.id, userId);
+    const n = await tx.query("SELECT nextval('payment_number_seq') n");
+    const id = randomUUID(); const paymentNumber = `PMT-${String(n.rows[0].n).padStart(6, '0')}`;
+    await tx.query(`INSERT INTO payments (id,payment_number,type,contact_id,${targetColumn},payment_date,amount,method,reference,notes,accounting_entry_id,created_by_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [id, paymentNumber, type, document.party_id, targetId, body.paymentDate, value, body.method, body.reference?.trim() || null, body.notes?.trim() || null, entry.id, userId]);
+    await tx.query(`UPDATE ${table} SET payment_status=$1,updated_at=NOW() WHERE id=$2`, [nextPaymentStatus(document.total_amount, Number(paid.rows[0].total) + amount), targetId]);
+    await logAudit(tx, { userId, action: `${type}_PAYMENT_RECORDED`, entity: 'Payment', entityId: id, metadata: { paymentNumber, targetId, amount: value } });
+    return getPayment(tx, id);
+  });
+}
+const recordCustomerPayment = (db, userId, invoiceId, body) => recordPayment(db, userId, invoiceId, body, 'CUSTOMER');
+const recordVendorPayment = (db, userId, billId, body) => recordPayment(db, userId, billId, body, 'VENDOR');
+
 // Cancelling never mutates the original posted journal entry. It posts a
 // reversing entry (debit/credit swapped) so the accounting trail always
 // shows what actually happened, then recomputes the invoice/bill status
 // from the remaining active payments.
 async function cancelPayment(db, userId, id) {
-  const payment = await getPayment(db, id);
+  return withTransaction(db, async (tx) => {
+  const payment = await getPayment(tx, id);
   if (!payment) throw fail('Payment not found.', 404);
   if (payment.status !== 'POSTED') throw fail('Only a Posted payment can be cancelled.');
 
-  const original = await accounting.getEntry(db, payment.accountingEntryId);
+  const original = await accounting.getEntry(tx, payment.accountingEntryId);
   const reversedLines = original.lines.map((line) => ({
     accountId: line.accountId,
     description: `Reversal of ${original.entryNumber}`,
@@ -198,17 +246,16 @@ async function cancelPayment(db, userId, id) {
     credit: line.debit,
     analyticAccountId: line.analyticAccountId || undefined,
   }));
-  const reversalJournal = await db.query('SELECT journal_id FROM journal_entries WHERE id = $1', [payment.accountingEntryId]);
-  const reversal = await accounting.createDraftEntry(db, userId, {
+  const reversalJournal = await tx.query('SELECT journal_id FROM journal_entries WHERE id = $1', [payment.accountingEntryId]);
+  const reversal = await accounting.createDraftEntry(tx, userId, {
     journalId: reversalJournal.rows[0].journal_id,
     entryDate: new Date().toISOString().slice(0, 10),
     reference: `Reversal of ${original.entryNumber}`,
     description: `Cancellation of payment ${payment.paymentNumber}`,
     lines: reversedLines,
   });
-  await accounting.postEntry(db, reversal.id, userId);
+  await accounting.postEntry(tx, reversal.id, userId);
 
-  return withTransaction(db, async (tx) => {
     const r = await tx.query(
       "UPDATE payments SET status='CANCELLED', reversal_entry_id=$1, cancelled_by_id=$2, cancelled_at=NOW(), updated_at=NOW() WHERE id=$3 AND status='POSTED' RETURNING id",
       [reversal.id, userId, id],

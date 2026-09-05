@@ -277,13 +277,14 @@ async function invoiceFromOrder(db, orderId) {
 }
 
 async function postInvoice(db, id, userId) {
-  const invoice = await getInvoice(db, id);
+  return withTransaction(db, async (tx) => {
+  const invoice = await getInvoice(tx, id);
   if (!invoice) throw fail('Customer Invoice not found.', 404);
   if (invoice.status !== 'DRAFT') throw fail('Only Draft Customer Invoices can be posted.');
 
-  const accountRows = await db.query("SELECT id, account_code FROM accounts WHERE status = 'ACTIVE' AND account_code IN ('1003', '4001', '2002')");
+  const accountRows = await tx.query("SELECT id, account_code FROM accounts WHERE status = 'ACTIVE' AND account_code IN ('1003', '4001', '2002')");
   const accountId = Object.fromEntries(accountRows.rows.map((a) => [a.account_code, a.id]));
-  const journal = await db.query("SELECT id FROM journals WHERE type = 'SALES' AND status = 'ACTIVE' LIMIT 1");
+  const journal = await tx.query("SELECT id FROM journals WHERE type = 'SALES' AND status = 'ACTIVE' LIMIT 1");
   if (!accountId['1003'] || !accountId['4001'] || !journal.rowCount || (Number(invoice.taxAmount) > 0 && !accountId['2002'])) {
     throw fail('Sales Journal, Debtors, Sales Income, and Output Tax Payable must be configured.');
   }
@@ -296,16 +297,15 @@ async function postInvoice(db, id, userId) {
     entryLines.push({ accountId: accountId['2002'], description: `Output tax for ${invoice.invoiceNumber}`, debit: '0.00', credit: invoice.taxAmount });
   }
 
-  const entry = await accounting.createDraftEntry(db, userId, {
+  const entry = await accounting.createDraftEntry(tx, userId, {
     journalId: journal.rows[0].id,
     entryDate: invoice.invoiceDate,
     reference: invoice.invoiceNumber,
     description: `Customer Invoice ${invoice.invoiceNumber}`,
     lines: entryLines,
   });
-  await accounting.postEntry(db, entry.id, userId);
+  await accounting.postEntry(tx, entry.id, userId);
 
-  return withTransaction(db, async (tx) => {
     const r = await tx.query(
       "UPDATE customer_invoices SET status='POSTED', posted_by_id=$1, posted_at=NOW(), accounting_entry_id=$2, updated_at=NOW() WHERE id=$3 AND status='DRAFT' RETURNING id",
       [userId, entry.id, id],

@@ -18,6 +18,7 @@ const { salesRoutes } = require('./routes/sales');
 const { paymentsRoutes } = require('./routes/payments');
 const { inventoryRoutes } = require('./routes/inventory');
 const { reportsRoutes } = require('./routes/reports');
+const { analyticsRoutes } = require('./routes/analytics');
 const { administrationRoutes, operationalRoutes } = require('./routes/administration');
 const { openApiDocument } = require('./openapi');
 
@@ -78,6 +79,7 @@ function createApp(db = pool) {
   app.use('/api', paymentsRoutes(db));
   app.use('/api', inventoryRoutes(db));
   app.use('/api', reportsRoutes(db));
+  app.use('/api', analyticsRoutes(db));
   app.use('/api', administrationRoutes(db));
   app.use('/api', operationalRoutes(db));
 

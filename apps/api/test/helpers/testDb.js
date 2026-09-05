@@ -1,10 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const { Pool } = require('pg');
-
-const TEST_DB_NAME = process.env.TEST_DATABASE_NAME || 'urban_furniture_test';
-const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
-const TEST_DATABASE_URL = `${ADMIN_URL.replace(/\/[^/]*$/, '')}/${TEST_DB_NAME}`;
+const { TEST_DATABASE_URL } = require('./testConfig');
 
 const MASTER_DATA_TABLES = [
   'budgets',

@@ -54,6 +54,12 @@ const reportLinks = [
   { to: '/reports/general-ledger', label: 'General Ledger', icon: NotebookText },
   { to: '/reports/budget', label: 'Budget Report', icon: Wallet },
 ];
+const analyticsLinks = [
+  { to: '/analytics/receivables', label: 'Receivables', icon: Wallet },
+  { to: '/analytics/payables', label: 'Payables', icon: ReceiptText },
+  { to: '/analytics/cash-flow', label: 'Cash Flow', icon: BarChart3 },
+  { to: '/analytics/trends', label: 'Profitability Trend', icon: BarChart3 },
+];
 
 function NavItem({ to, label, icon: Icon }) {
   return (
@@ -133,6 +139,9 @@ export function Sidebar({ user, open, onClose }) {
           )}
           {showMasterData && (
             <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Reports</p><div className="space-y-1">{reportLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Analytics</p><div className="space-y-1">{analyticsLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
           )}
           {user.role === 'ADMIN' && (
             <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Administration</p><div className="space-y-1"><NavItem to="/admin/administration" label="System Administration" icon={LandmarkIcon} /></div></div>

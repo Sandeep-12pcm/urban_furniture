@@ -169,8 +169,8 @@ npm test
 
 Runs against a real, disposable PostgreSQL database (`urban_furniture_test`
 by default — override with `TEST_DATABASE_ADMIN_URL` / `TEST_DATABASE_NAME`),
-created and migrated automatically by `apps/api/test/globalSetup.js`. 54
-tests cover auth/RBAC (pre-existing) plus create/update/archive/restore,
+created and migrated automatically by `apps/api/test/globalSetup.js`. The
+current suite contains 87 tests covering auth/RBAC plus create/update/archive/restore,
 validation, duplicate/invalid data, and authorization for every Phase 1
 resource.
 

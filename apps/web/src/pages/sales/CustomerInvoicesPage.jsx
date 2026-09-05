@@ -54,7 +54,7 @@ export function CustomerInvoicesPage() {
       })
       .catch((error) => notify(error.message || 'Could not load Sales Order for invoicing.', { tone: 'error' }))
       .finally(() => setSearchParams({}, { replace: true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [fromOrder]);
 
   async function postInvoice(invoice) {

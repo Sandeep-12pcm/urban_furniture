@@ -46,7 +46,7 @@ export function PaymentPanel({ type, targetId, targetStatus, onChanged }) {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [targetId]);
 
   async function handleCancel() {

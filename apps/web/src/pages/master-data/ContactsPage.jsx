@@ -226,7 +226,7 @@ function ContactFormModal({ open, contact, onClose, onSaved }) {
       setSubmitError('');
     }
     // toFormState is a pure function of `contact`; re-running only on open/contact avoids resetting mid-edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open, contact]);
 
   async function submit(event) {

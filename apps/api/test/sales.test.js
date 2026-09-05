@@ -32,6 +32,10 @@ describe('Sales workflow (Orders, Invoices, accounting integration)', () => {
     customerId = await createContact(pool, 'CUSTOMER', { name: 'Nimesh Pathak' });
     vendorId = await createContact(pool, 'VENDOR', { name: 'Vendor Only Co' });
     productId = await createProduct(pool, fixtures.categoryId, { name: 'Office Chair', salesPrice: 5000, purchasePrice: 3500 });
+    // Sales posting is a stock-out operation. Seed an auditable opening
+    // balance rather than allowing the workflow to create negative stock.
+    await request(app).post('/api/inventory/adjustments').set('Cookie', adminCookie)
+      .send({ productId, direction: 'IN', quantity: 100, reason: 'Test opening stock' }).expect(201);
   });
 
   test('full accounting integration: Nimesh Pathak buys 5 Office Chairs @ ₹5,000, 18% tax', async () => {

@@ -109,6 +109,13 @@ export const reportsApi = {
   balanceSheet: (params = {}) => apiRequest(`/reports/balance-sheet${toQueryString(params)}`),
   budget: (params = {}) => apiRequest(`/reports/budget${toQueryString(params)}`),
 };
+export const analyticsApi = {
+  dashboard: (params = {}) => apiRequest(`/analytics/dashboard${toQueryString(params)}`),
+  sales: (params = {}) => apiRequest(`/analytics/sales${toQueryString(params)}`),
+  purchases: (params = {}) => apiRequest(`/analytics/purchases${toQueryString(params)}`),
+  inventory: () => apiRequest('/analytics/inventory'),
+  receivables: () => apiRequest('/analytics/receivables'), payables: () => apiRequest('/analytics/payables'), cashFlow: (params={}) => apiRequest(`/analytics/cash-flow${toQueryString(params)}`), trends: (params={}) => apiRequest(`/analytics/trends${toQueryString(params)}`),
+};
 
 export const adminApi = {
   users: (params={}) => apiRequest(`/admin/users${toQueryString(params)}`),

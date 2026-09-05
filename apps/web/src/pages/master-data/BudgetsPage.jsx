@@ -218,7 +218,7 @@ function BudgetFormModal({ open, budget, analyticAccounts, users, onClose, onSav
       setErrors({});
       setSubmitError('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open, budget]);
 
   async function submit(event) {

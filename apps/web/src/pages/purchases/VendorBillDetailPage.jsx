@@ -35,7 +35,7 @@ export function VendorBillDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id]);
 
   async function post() {
     setActing('post');

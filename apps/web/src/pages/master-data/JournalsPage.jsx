@@ -204,7 +204,7 @@ function JournalFormModal({ open, journal, accounts, onClose, onSaved }) {
       setErrors({});
       setSubmitError('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open, journal]);
 
   async function submit(event) {

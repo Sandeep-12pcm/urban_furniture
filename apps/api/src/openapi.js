@@ -2,7 +2,7 @@
 // every Phase 1 resource. ADMIN and ACCOUNTANT can create/view/update;
 // ADMIN alone may archive/restore. CONTACT and unauthenticated callers are
 // rejected by the authenticate()/authorize() middleware (401/403).
-function masterDataPaths(resource, { singular, plural = resource, description }) {
+function masterDataPaths(resource, { singular, description }) {
   return {
     [`/${resource}`]: {
       get: {
@@ -176,6 +176,14 @@ const openApiDocument = {
     '/reports/profit-loss': { get: { summary: 'Profit and Loss from INCOME and EXPENSE posted journal lines', security: [{ cookieAuth: [] }], parameters: [{ name: 'startDate', in: 'query' }, { name: 'endDate', in: 'query' }] } },
     '/reports/balance-sheet': { get: { summary: 'Balance Sheet from ASSET, LIABILITY and CAPITAL accounts, plus calculated current-period profit', security: [{ cookieAuth: [] }], parameters: [{ name: 'endDate', in: 'query' }] } },
     '/reports/budget': { get: { summary: 'Budget versus actual based on analytic-account posted journal lines', security: [{ cookieAuth: [] }], parameters: [{ name: 'startDate', in: 'query' }, { name: 'endDate', in: 'query' }] } },
+    '/analytics/dashboard': { get: { summary: 'Executive analytics KPIs, inventory alerts, rankings and recent activity from live database data (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], parameters: [{ name: 'startDate', in: 'query' }, { name: 'endDate', in: 'query' }], responses: { 200: { description: 'Analytics dashboard' }, 403: { description: 'Internal roles only' } } } },
+    '/analytics/sales': { get: { summary: 'Posted-invoice sales totals, top products and customers (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }] } },
+    '/analytics/purchases': { get: { summary: 'Posted vendor-bill purchase totals and top vendors (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }] } },
+    '/analytics/inventory': { get: { summary: 'Current stock valuation, product counts and low-stock alerts (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }] } },
+    '/analytics/receivables': { get: { summary: 'Customer receivable ageing, payment status counts and outstanding customers (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Receivables ageing' }, 403: { description: 'Internal roles only' } } } },
+    '/analytics/payables': { get: { summary: 'Vendor payable ageing, payment status counts and outstanding vendors (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Payables ageing' }, 403: { description: 'Internal roles only' } } } },
+    '/analytics/cash-flow': { get: { summary: 'Recorded customer receipts and vendor-payment cash flow (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], parameters: [{ name: 'startDate', in: 'query' }, { name: 'endDate', in: 'query' }] } },
+    '/analytics/trends': { get: { summary: 'Monthly revenue and expense trend from posted journal entries (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], parameters: [{ name: 'startDate', in: 'query' }, { name: 'endDate', in: 'query' }] } },
     '/admin/users': { get: { summary: 'Admin user list with database search/filter/pagination', security: [{ cookieAuth: [] }] }, post: { summary: 'Create an approved Admin, Accountant, or contact-linked CONTACT user', security: [{ cookieAuth: [] }] } },
     '/admin/users/{id}': { patch: { summary: 'Admin update/deactivate/reset a user; final active administrator is protected', security: [{ cookieAuth: [] }] } },
     '/admin/taxes': { get: { summary: 'List tax configurations (ADMIN)', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a validated tax configuration with optional active tax account (ADMIN)', security: [{ cookieAuth: [] }] } },

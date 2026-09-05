@@ -3,13 +3,9 @@ import { useEffect, useState } from 'react';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '../components/Button.jsx';
 import { apiRequest } from '../lib/api.js';
+import { analyticsApi } from '../lib/masterDataApi.js';
+import { formatMoney } from '../lib/format.js';
 import { useAuth } from '../lib/AuthContext.jsx';
-
-const sampleData = [
-  { name: 'Sales', value: 78 },
-  { name: 'Purchases', value: 52 },
-  { name: 'Cash', value: 64 },
-];
 
 const dashboardMeta = {
   ADMIN: {
@@ -37,6 +33,9 @@ export function Dashboard() {
   const { user } = useAuth();
   const meta = dashboardMeta[user.role];
 
+  if (user.role === 'CONTACT') return (
+    <div className="space-y-6"><div className="rounded-2xl bg-navy px-6 py-8 text-white shadow-card"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">Urban Furniture</p><h1 className="mt-2 text-3xl font-bold">{meta.title}</h1><p className="mt-1 text-sm text-white/72">Your portal does not expose internal company analytics.</p></div><AccountDirectory currentUser={user}/></div>
+  );
   return (
     <div className="space-y-6">
       <div className="rounded-2xl bg-navy px-6 py-8 text-white shadow-card">
@@ -51,26 +50,23 @@ export function Dashboard() {
         <InfoCard label="Status" value="Protected" success />
       </section>
 
+      <ExecutiveAnalytics />
+
       <AccountDirectory currentUser={user} />
 
-      <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
-        <div className="mb-4">
-          <p className="text-sm font-semibold text-muted">Visualization Foundation</p>
-          <h2 className="mt-1 text-xl font-bold text-ink">Accounting KPI Placeholder</h2>
-        </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sampleData}>
-              <XAxis dataKey="name" stroke="#6b6f8d" />
-              <YAxis stroke="#6b6f8d" />
-              <Tooltip />
-              <Bar dataKey="value" fill="#545b9a" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
     </div>
   );
+}
+
+function ExecutiveAnalytics() {
+  const [data,setData]=useState(null); const [error,setError]=useState(''); const [range,setRange]=useState('');
+  const load=async()=>{setError('');try{const now=new Date();const params=range==='MONTH'?{startDate:new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10),endDate:now.toISOString().slice(0,10)}:{};setData(await analyticsApi.dashboard(params));}catch(e){setError(e.message||'Unable to load analytics.');}};
+  useEffect(()=>{load();},[range]);
+  if(error)return <div className="rounded-2xl bg-danger/10 p-5 text-danger">Unable to load business analytics. <button className="font-bold underline" onClick={load}>Retry</button></div>;
+  if(!data)return <div className="rounded-2xl bg-white p-6 text-muted shadow-card">Loading live business analytics…</div>;
+  const cards=[['Revenue',data.kpis.totalRevenue],['Expenses',data.kpis.totalExpenses],['Net Profit',data.kpis.netProfit],['Cash',data.kpis.cashBalance],['Bank',data.kpis.bankBalance],['Receivables',data.kpis.receivables],['Payables',data.kpis.payables],['Inventory Value',data.kpis.inventoryValue]];
+  const chart=[{name:'Revenue',value:Number(data.kpis.totalRevenue)},{name:'Expenses',value:Number(data.kpis.totalExpenses)},{name:'Profit',value:Number(data.kpis.netProfit)}];
+  return <section className="space-y-5"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-muted">Live business intelligence</p><h2 className="text-xl font-bold text-ink">Executive overview</h2></div><select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={range} onChange={e=>setRange(e.target.value)}><option value="">All posted history</option><option value="MONTH">This month</option></select></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([label,value])=><InfoCard key={label} label={label} value={formatMoney(value)}/>)}</div><div className="grid gap-5 lg:grid-cols-2"><div className="rounded-2xl bg-white p-5 shadow-card"><h3 className="font-bold text-ink">Revenue, expense & profit</h3><div className="h-60"><ResponsiveContainer><BarChart data={chart}><XAxis dataKey="name"/><YAxis/><Tooltip formatter={v=>formatMoney(v)}/><Bar dataKey="value" fill="#545b9a" radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div></div><div className="rounded-2xl bg-white p-5 shadow-card"><h3 className="font-bold text-ink">Top selling products</h3>{data.sales.topProducts.length?<div className="mt-3 space-y-3">{data.sales.topProducts.map(x=><div key={x.id} className="flex justify-between border-b border-slate-100 pb-2 text-sm"><span>{x.name} · {x.quantity} units</span><b>{formatMoney(x.revenue)}</b></div>)}</div>:<p className="mt-4 text-sm text-muted">No sales recorded for this period.</p>}<h3 className="mt-5 font-bold text-ink">Stock alerts</h3>{data.inventory.alerts.length?<div className="mt-2 space-y-2 text-sm">{data.inventory.alerts.map(x=><div key={x.id} className="flex justify-between"><span>{x.name}</span><b className="text-danger">{x.quantity} remaining</b></div>)}</div>:<p className="mt-2 text-sm text-success">All products are adequately stocked.</p>}</div></div></section>;
 }
 
 function AccountDirectory({ currentUser }) {

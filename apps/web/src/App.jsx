@@ -37,6 +37,7 @@ import { InventoryMovementsPage } from './pages/inventory/InventoryMovementsPage
 import { InventoryProductDetailPage } from './pages/inventory/InventoryProductDetailPage.jsx';
 import { ReportsDashboardPage, TrialBalancePage, GeneralLedgerPage, ProfitLossPage, BalanceSheetPage, BudgetReportPage } from './pages/reports/ReportsPage.jsx';
 import { AdministrationPage } from './pages/admin/AdministrationPage.jsx';
+import { ReceivablesPage, PayablesPage, CashFlowPage, TrendsPage } from './pages/analytics/AnalyticsPages.jsx';
 
 function ProtectedRoute({ roles, user }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -163,6 +164,7 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/reports/profit-loss" element={<ProfitLossPage />} />
                 <Route path="/reports/balance-sheet" element={<BalanceSheetPage />} />
                 <Route path="/reports/budget" element={<BudgetReportPage />} />
+                <Route path="/analytics/receivables" element={<ReceivablesPage />} /><Route path="/analytics/payables" element={<PayablesPage />} /><Route path="/analytics/cash-flow" element={<CashFlowPage />} /><Route path="/analytics/trends" element={<TrendsPage />} />
               </Route>
             </Route>
           </Route>

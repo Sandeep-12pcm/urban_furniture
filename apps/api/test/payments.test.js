@@ -31,6 +31,8 @@ describe('Payments (customer receipts and vendor payments)', () => {
     customerId = await createContact(pool, 'CUSTOMER', { name: 'Nimesh Pathak' });
     vendorId = await createContact(pool, 'VENDOR', { name: 'Furniture Supplies Co' });
     productId = await createProduct(pool, fixtures.categoryId, { name: 'Office Chair', salesPrice: 5000, purchasePrice: 3500 });
+    await request(app).post('/api/inventory/adjustments').set('Cookie', adminCookie)
+      .send({ productId, direction: 'IN', quantity: 100, reason: 'Test opening stock' }).expect(201);
   });
 
   async function postedInvoice(amountQty = 1, unitPrice = 10000, taxRate = 0) {

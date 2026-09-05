@@ -1,9 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Client, Pool } = require('pg');
-
-const TEST_DB_NAME = process.env.TEST_DATABASE_NAME || 'urban_furniture_test';
-const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
+const { TEST_DB_NAME, ADMIN_URL, TEST_DATABASE_URL } = require('./helpers/testConfig');
 
 module.exports = async function globalSetup() {
   const admin = new Client({ connectionString: ADMIN_URL });
@@ -18,7 +16,7 @@ module.exports = async function globalSetup() {
   await admin.end();
 
   const schemaSql = fs.readFileSync(path.resolve(__dirname, '../src/sql/schema.sql'), 'utf8');
-  const testPool = new Pool({ connectionString: `${ADMIN_URL.replace(/\/[^/]*$/, '')}/${TEST_DB_NAME}` });
+  const testPool = new Pool({ connectionString: TEST_DATABASE_URL });
   await testPool.query(schemaSql);
   await testPool.end();
 };

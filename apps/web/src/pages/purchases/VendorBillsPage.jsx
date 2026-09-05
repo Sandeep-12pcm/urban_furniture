@@ -51,7 +51,7 @@ export function VendorBillsPage() {
       .then((data) => { setPrefill(data.vendorBill); setFormOpen(true); })
       .catch((error) => notify(error.message || 'Could not load Purchase Order for billing.', { tone: 'error' }))
       .finally(() => setSearchParams({}, { replace: true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [fromOrder]);
 
   async function postBill(bill) {

@@ -35,7 +35,7 @@ export function CustomerInvoiceDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [id]);
 
   async function post() {
     setActing('post');

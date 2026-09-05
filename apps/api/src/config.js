@@ -5,9 +5,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 function normalizeDatabaseUrl(value) {
-  const fallback = 'postgresql://postgres:postgres@localhost:5432/urban_furniture?schema=public';
-  if (process.env.NODE_ENV === 'production' && !value) throw new Error('DATABASE_URL is required in production.');
-  const url = new URL(value || fallback);
+  if (!value) throw new Error('DATABASE_URL is required.');
+  const url = new URL(value);
   url.searchParams.delete('schema');
   return url.toString();
 }

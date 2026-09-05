@@ -37,7 +37,7 @@ export function useResourceList(apiClient, params, dataKey) {
       cancelled = true;
     };
     // paramsKey is the stable, comparable representation of params.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [paramsKey, reloadToken]);
 
   return { data, pagination, loading, error, reload };
