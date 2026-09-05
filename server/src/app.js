@@ -29,8 +29,10 @@ function createApp() {
   // Mount routes
   const authRoutes = require('./routes/auth.routes');
   const contactRoutes = require('./routes/contact.routes');
+  const productRoutes = require('./routes/product.routes');
   app.use('/api/auth', authRoutes);
   app.use('/api/contacts', contactRoutes);
+  app.use('/api/products', productRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
