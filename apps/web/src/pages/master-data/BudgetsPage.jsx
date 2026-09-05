@@ -41,7 +41,7 @@ export function BudgetsPage() {
   const [analyticAccounts, setAnalyticAccounts] = useState([]);
   const [users, setUsers] = useState([]);
   useEffect(() => {
-    analyticAccountsApi.list({ status: 'ALL', limit: 100 }).then((data) => setAnalyticAccounts(data.analyticAccounts || [])).catch(() => {});
+    analyticAccountsApi.list({ status: 'ALL', limit: 500 }).then((data) => setAnalyticAccounts(data.analyticAccounts || [])).catch(() => {});
     fetchAssignableUsers().then((data) => setUsers(data.users || [])).catch(() => {});
   }, []);
 
@@ -55,6 +55,7 @@ export function BudgetsPage() {
     analyticAccountId: analyticFilter === 'ALL' ? undefined : analyticFilter,
     status: statusFilter,
     page,
+    limit: 300,
   };
   const { data: budgets, pagination, loading, error, reload } = useResourceList(budgetsApi, params, 'budgets');
 

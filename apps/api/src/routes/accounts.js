@@ -3,6 +3,7 @@ const { randomUUID } = require('crypto');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../db/audit');
 const { mapConstraintError } = require('../lib/masterDataErrors');
+const { parsePagination, buildPaginationMeta } = require('../lib/pagination');
 const { validateAccount } = require('../masterDataValidation');
 
 const accountSelect = `
@@ -48,13 +49,28 @@ function accountsRoutes(db) {
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
+      if (req.query.page !== undefined || req.query.limit !== undefined) {
+        const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 1000 });
+        const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM accounts ${where}`, params);
+        const total = countResult.rows[0].total;
+
+        const result = await db.query(
+          `SELECT ${accountSelect} FROM accounts ${where} ORDER BY type ASC, account_code ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+          [...params, limit, offset],
+        );
+
+        return res.json({
+          accounts: result.rows,
+          pagination: buildPaginationMeta({ page, limit, total }),
+        });
+      }
+
       const result = await db.query(
         `SELECT ${accountSelect} FROM accounts ${where} ORDER BY type ASC, account_code ASC`,
         params,
       );
 
-      // The Chart of Accounts is rendered as a tree, so the full (filtered) set
-      // is returned in one response rather than paginated.
+      // The Chart of Accounts is rendered as a tree by default when unpaginated.
       return res.json({
         accounts: result.rows,
         pagination: { page: 1, limit: result.rowCount, total: result.rowCount, totalPages: 1 },

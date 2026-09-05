@@ -35,7 +35,8 @@ function productCategoriesRoutes(db) {
 
       if (req.query.search) {
         params.push(`%${String(req.query.search).trim().toLowerCase()}%`);
-        conditions.push(`lower(name) LIKE $${params.length}`);
+        // conditions.push(`lower(name) LIKE $${params.length}`);
+        conditions.push(`(lower(name) LIKE $${params.length} OR lower(description) LIKE $${params.length})`);
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';

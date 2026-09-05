@@ -54,6 +54,7 @@ export function ContactsPage() {
     type: typeFilter === 'ALL' ? undefined : typeFilter,
     status: statusFilter,
     page,
+    limit: 30,
   };
 
   const { data: contacts, pagination, loading, error, reload } = useResourceList(contactsApi, params, 'contacts');

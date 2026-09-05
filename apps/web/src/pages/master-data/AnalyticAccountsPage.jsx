@@ -13,6 +13,7 @@ import { StatusBadge, TypeBadge } from '../../components/StatusBadge.jsx';
 import { Table, Td, Th, Tr } from '../../components/Table.jsx';
 import { Textarea } from '../../components/Textarea.jsx';
 import { FilterSelect, SearchBar, Toolbar } from '../../components/Toolbar.jsx';
+import { Pagination } from '../../components/Pagination.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { canArchiveMasterData, useAuth } from '../../lib/AuthContext.jsx';
 import { analyticAccountsApi } from '../../lib/masterDataApi.js';
@@ -39,6 +40,7 @@ export function AnalyticAccountsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
   const [formState, setFormState] = useState(null);
@@ -50,9 +52,10 @@ export function AnalyticAccountsPage() {
     search: debouncedSearch || undefined,
     type: typeFilter === 'ALL' ? undefined : typeFilter,
     status: statusFilter,
-    limit: 100,
+    page,
+    limit: 300,
   };
-  const { data: analyticAccounts, loading, error, reload } = useResourceList(analyticAccountsApi, params, 'analyticAccounts');
+  const { data: analyticAccounts, pagination, loading, error, reload } = useResourceList(analyticAccountsApi, params, 'analyticAccounts');
 
   async function handleArchive() {
     setArchiving(true);
@@ -96,10 +99,10 @@ export function AnalyticAccountsPage() {
 
       <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
         <Toolbar>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search analytic accounts…" />
+          <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} placeholder="Search analytic accounts…" />
           <div className="flex gap-3">
-            <FilterSelect label="Filter by type" value={typeFilter} onChange={setTypeFilter} options={TYPE_OPTIONS} />
-            <FilterSelect label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
+            <FilterSelect label="Filter by type" value={typeFilter} onChange={(val) => { setTypeFilter(val); setPage(1); }} options={TYPE_OPTIONS} />
+            <FilterSelect label="Filter by status" value={statusFilter} onChange={(val) => { setStatusFilter(val); setPage(1); }} options={STATUS_OPTIONS} />
           </div>
         </Toolbar>
 
@@ -145,6 +148,8 @@ export function AnalyticAccountsPage() {
             </tbody>
           </Table>
         )}
+
+        <Pagination pagination={pagination} onPageChange={setPage} />
       </div>
 
       <AnalyticAccountFormModal

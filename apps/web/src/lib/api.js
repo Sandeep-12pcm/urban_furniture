@@ -10,7 +10,6 @@ export async function apiRequest(path, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Request failed.');

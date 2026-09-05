@@ -49,7 +49,7 @@ export function ProductsPage() {
 
   const [categories, setCategories] = useState([]);
   useEffect(() => {
-    productCategoriesApi.list({ status: 'ALL', limit: 100 }).then((data) => setCategories(data.categories || [])).catch(() => {});
+    productCategoriesApi.list({ status: 'ALL', limit: 500 }).then((data) => setCategories(data.categories || [])).catch(() => {});
   }, []);
 
   const [formState, setFormState] = useState(null);
@@ -63,6 +63,7 @@ export function ProductsPage() {
     categoryId: categoryFilter === 'ALL' ? undefined : categoryFilter,
     status: statusFilter,
     page,
+    limit: 10,
   };
 
   const { data: products, pagination, loading, error, reload } = useResourceList(productsApi, params, 'products');

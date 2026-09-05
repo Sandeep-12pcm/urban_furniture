@@ -12,6 +12,7 @@ import { Select } from '../../components/Select.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { Textarea } from '../../components/Textarea.jsx';
 import { FilterSelect, SearchBar, Toolbar } from '../../components/Toolbar.jsx';
+import { Pagination } from '../../components/Pagination.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { canArchiveMasterData, useAuth } from '../../lib/AuthContext.jsx';
 import { accountsApi } from '../../lib/masterDataApi.js';
@@ -20,6 +21,15 @@ import { useDebouncedValue, useResourceList } from '../../lib/useResourceList.js
 
 const TYPE_ORDER = ['ASSET', 'LIABILITY', 'INCOME', 'EXPENSE', 'CAPITAL'];
 const TYPE_LABELS = { ASSET: 'Assets', LIABILITY: 'Liabilities', INCOME: 'Income', EXPENSE: 'Expenses', CAPITAL: 'Capital' };
+
+const TYPE_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Types' },
+  { value: 'ASSET', label: 'Assets' },
+  { value: 'LIABILITY', label: 'Liabilities' },
+  { value: 'INCOME', label: 'Income' },
+  { value: 'EXPENSE', label: 'Expenses' },
+  { value: 'CAPITAL', label: 'Capital' },
+];
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Active' },
@@ -47,6 +57,8 @@ export function AccountsPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
   const [collapsed, setCollapsed] = useState(() => new Set());
 
@@ -55,8 +67,20 @@ export function AccountsPage() {
   const [archiving, setArchiving] = useState(false);
   const [restoringId, setRestoringId] = useState('');
 
-  const params = { search: debouncedSearch || undefined, status: statusFilter };
-  const { data: accounts, loading, error, reload } = useResourceList(accountsApi, params, 'accounts');
+  const [allAccounts, setAllAccounts] = useState([]);
+  const loadAllAccounts = () => {
+    accountsApi.list({ status: 'ACTIVE' }).then((data) => setAllAccounts(data.accounts || [])).catch(() => {});
+  };
+  useEffect(loadAllAccounts, []);
+
+  const params = {
+    search: debouncedSearch || undefined,
+    status: statusFilter,
+    type: typeFilter === 'ALL' ? undefined : typeFilter,
+    page,
+    limit: 25,
+  };
+  const { data: accounts, pagination, loading, error, reload } = useResourceList(accountsApi, params, 'accounts');
 
   const grouped = useMemo(() => {
     const byType = {};
@@ -117,8 +141,11 @@ export function AccountsPage() {
 
       <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
         <Toolbar>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search by code or name…" />
-          <FilterSelect label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
+          <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} placeholder="Search by code or name…" />
+          <div className="flex gap-3">
+            <FilterSelect label="Filter by type" value={typeFilter} onChange={(val) => { setTypeFilter(val); setPage(1); }} options={TYPE_FILTER_OPTIONS} />
+            <FilterSelect label="Filter by status" value={statusFilter} onChange={(val) => { setStatusFilter(val); setPage(1); }} options={STATUS_OPTIONS} />
+          </div>
         </Toolbar>
 
         {loading && <LoadingTable columns={4} rows={7} />}
@@ -152,16 +179,19 @@ export function AccountsPage() {
             ))}
           </div>
         )}
+
+        <Pagination pagination={pagination} onPageChange={setPage} />
       </div>
 
       <AccountFormModal
         open={Boolean(formState)}
         account={formState && formState !== 'create' ? formState : null}
-        accounts={accounts}
+        accounts={allAccounts.length ? allAccounts : accounts}
         onClose={() => setFormState(null)}
         onSaved={() => {
           setFormState(null);
           reload();
+          loadAllAccounts();
         }}
       />
 

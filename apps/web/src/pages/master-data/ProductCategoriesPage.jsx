@@ -12,6 +12,7 @@ import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { Table, Td, Th, Tr } from '../../components/Table.jsx';
 import { Textarea } from '../../components/Textarea.jsx';
 import { FilterSelect, SearchBar, Toolbar } from '../../components/Toolbar.jsx';
+import { Pagination } from '../../components/Pagination.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { canArchiveMasterData, useAuth } from '../../lib/AuthContext.jsx';
 import { productCategoriesApi } from '../../lib/masterDataApi.js';
@@ -24,6 +25,13 @@ const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All' },
 ];
 
+const PAGE_SIZE_OPTIONS = [
+  { value: '10', label: '10 per page' },
+  { value: '25', label: '25 per page' },
+  { value: '50', label: '50 per page' },
+  { value: '100', label: '100 per page' },
+];
+
 export function ProductCategoriesPage() {
   const { user } = useAuth();
   const { notify } = useToast();
@@ -31,14 +39,16 @@ export function ProductCategoriesPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const debouncedSearch = useDebouncedValue(search);
   const [formState, setFormState] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
   const [archiving, setArchiving] = useState(false);
   const [restoringId, setRestoringId] = useState('');
 
-  const params = { search: debouncedSearch || undefined, status: statusFilter, limit: 100 };
-  const { data: categories, loading, error, reload } = useResourceList(productCategoriesApi, params, 'categories');
+  const params = { search: debouncedSearch || undefined, status: statusFilter, page, limit: pageSize };
+  const { data: categories, pagination, loading, error, reload } = useResourceList(productCategoriesApi, params, 'categories');
 
   async function handleArchive() {
     setArchiving(true);
@@ -82,8 +92,11 @@ export function ProductCategoriesPage() {
 
       <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
         <Toolbar>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search categories…" />
-          <FilterSelect label="Filter by status" value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
+          <SearchBar value={search} onChange={(val) => { setSearch(val); setPage(1); }} placeholder="Search categories…" />
+          <div className="flex gap-3">
+            <FilterSelect label="Filter by status" value={statusFilter} onChange={(val) => { setStatusFilter(val); setPage(1); }} options={STATUS_OPTIONS} />
+            <FilterSelect label="Rows per page" value={String(pageSize)} onChange={(val) => { setPageSize(Number(val)); setPage(1); }} options={PAGE_SIZE_OPTIONS} />
+          </div>
         </Toolbar>
 
         {loading && <LoadingTable columns={3} />}
@@ -128,6 +141,8 @@ export function ProductCategoriesPage() {
             </tbody>
           </Table>
         )}
+
+        <Pagination pagination={pagination} onPageChange={setPage} />
       </div>
 
       <CategoryFormModal
