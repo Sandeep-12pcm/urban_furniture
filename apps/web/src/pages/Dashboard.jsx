@@ -1,215 +1,327 @@
-import { CheckCircle2, Loader2, LogOut, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Button } from '../components/Button.jsx';
-import { apiRequest } from '../lib/api.js';
-
-const sampleData = [
-  { name: 'Sales', value: 78 },
-  { name: 'Purchases', value: 52 },
-  { name: 'Cash', value: 64 },
-];
-
-const dashboardMeta = {
-  ADMIN: {
-    title: 'Admin Dashboard',
-    subtitle: 'Owner access for user management, reports, and future accounting modules.',
-    path: '/admin/dashboard',
-  },
-  ACCOUNTANT: {
-    title: 'Accountant Dashboard',
-    subtitle: 'Invoicing user access for master data, transactions, and reports.',
-    path: '/accountant/dashboard',
-  },
-  CONTACT: {
-    title: 'Contact Portal',
-    subtitle: 'Contact access for future invoice, bill, and payment status views.',
-    path: '/contact/dashboard',
-  },
-};
+import React, { useState, useEffect } from 'react';
+import {
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  Truck,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Target,
+  Plus,
+  ArrowRight,
+  Receipt,
+  FileSpreadsheet,
+  Building2,
+  Wallet,
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import { api } from '../services/api';
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  StatCard,
+  Badge,
+  PageHeader,
+  LoadingSpinner,
+  ErrorState,
+} from '../components/ui';
+import { formatCurrency, formatDate } from '../utils/currency';
 
 export function roleHome(role) {
-  return dashboardMeta[role]?.path || '/login';
+  return '/dashboard';
 }
 
-export function Dashboard({ user, navigate, setUser }) {
-  const meta = dashboardMeta[user.role];
+export function Dashboard({ user, navigate }) {
+  const [metrics, setMetrics] = useState(null);
+  const [recentInvoices, setRecentInvoices] = useState([]);
+  const [recentBills, setRecentBills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  async function logout() {
-    try {
-      await apiRequest('/auth/logout', { method: 'POST' });
-    } finally {
-      setUser(null);
-      navigate('/login');
-    }
-  }
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
-  return (
-    <main className="min-h-screen bg-page">
-      <header className="bg-navy px-4 py-6 text-white shadow-card">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">Urban Furniture</p>
-            <h1 className="mt-2 text-3xl font-bold">{meta.title}</h1>
-            <p className="mt-1 text-sm text-white/72">{meta.subtitle}</p>
-          </div>
-          <Button type="button" variant="secondary" onClick={logout}>
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </header>
-
-      <section className="mx-auto grid max-w-6xl gap-5 px-4 py-8 md:grid-cols-3">
-        <InfoCard label="Signed in as" value={user.loginId} />
-        <InfoCard label="Role" value={user.accountType || user.role} />
-        <InfoCard label="Status" value="Protected" success />
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-8">
-        <AccountDirectory currentUser={user} />
-
-        <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
-          <div className="mb-4">
-            <p className="text-sm font-semibold text-muted">Visualization Foundation</p>
-            <h2 className="mt-1 text-xl font-bold text-ink">Accounting KPI Placeholder</h2>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sampleData}>
-                <XAxis dataKey="name" stroke="#6b6f8d" />
-                <YAxis stroke="#6b6f8d" />
-                <Tooltip />
-                <Bar dataKey="value" fill="#545b9a" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function AccountDirectory({ currentUser }) {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [approvingId, setApprovingId] = useState('');
-  const [error, setError] = useState('');
-
-  async function loadUsers() {
+  async function loadDashboardData() {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
-      const data = await apiRequest('/users');
-      setUsers(data.users || []);
-    } catch (requestError) {
-      setError(requestError.message || 'Could not load accounts.');
+      const [data, invoicesList, billsList] = await Promise.all([
+        api.reports.getDashboardMetrics(),
+        api.invoices.list(),
+        api.vendorBills.list(),
+      ]);
+      setMetrics(data);
+      setRecentInvoices(invoicesList.slice(0, 5));
+      setRecentBills(billsList.slice(0, 5));
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard metrics.');
     } finally {
       setLoading(false);
     }
   }
 
-  async function approveAccountant(userId) {
-    setApprovingId(userId);
-    setError('');
-    try {
-      await apiRequest(`/users/${userId}/approve-accountant`, { method: 'POST' });
-      await loadUsers();
-    } catch (requestError) {
-      setError(requestError.message || 'Could not approve accountant.');
-    } finally {
-      setApprovingId('');
-    }
+  if (loading) {
+    return (
+      <div className="py-24">
+        <LoadingSpinner size="lg" message="Loading financial dashboard..." />
+      </div>
+    );
   }
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const title = currentUser.role === 'ADMIN'
-    ? 'All User and Accountant Accounts'
-    : currentUser.role === 'ACCOUNTANT'
-      ? 'Your Account and User Accounts'
-      : 'Your Account';
+  if (error || !metrics) {
+    return <ErrorState message={error || 'Failed to load dashboard.'} onRetry={loadDashboardData} />;
+  }
 
   return (
-    <div className="mb-5 rounded-2xl border border-white/80 bg-white p-5 shadow-card">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-muted">Account Access</p>
-          <h2 className="text-xl font-bold text-ink">{title}</h2>
-        </div>
-        <Button type="button" variant="secondary" onClick={loadUsers} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
-      {error && <div className="mb-4 rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-left text-sm">
-          <thead>
-            <tr className="text-muted">
-              <th className="px-3 py-2 font-semibold">Login ID</th>
-              <th className="px-3 py-2 font-semibold">Email</th>
-              <th className="px-3 py-2 font-semibold">Account</th>
-              <th className="px-3 py-2 font-semibold">Approval</th>
-              <th className="px-3 py-2 font-semibold">Active</th>
-              {currentUser.role === 'ADMIN' && <th className="px-3 py-2 font-semibold">Action</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((account) => (
-              <tr key={account.id} className="rounded-xl bg-page/70">
-                <td className="rounded-l-xl px-3 py-3 font-semibold text-ink">{account.loginId}</td>
-                <td className="px-3 py-3 text-muted">{account.email}</td>
-                <td className="px-3 py-3 text-ink">{account.accountType || account.role}</td>
-                <td className="px-3 py-3">
-                  <StatusBadge status={account.approvalStatus || 'APPROVED'} />
-                </td>
-                <td className="px-3 py-3 text-ink">{account.isActive ? 'Yes' : 'No'}</td>
-                {currentUser.role === 'ADMIN' && (
-                  <td className="rounded-r-xl px-3 py-3">
-                    {account.role === 'ACCOUNTANT' && account.approvalStatus === 'PENDING' ? (
-                      <Button type="button" onClick={() => approveAccountant(account.id)} disabled={approvingId === account.id}>
-                        {approvingId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        Approve
-                      </Button>
-                    ) : (
-                      <span className="text-muted">No action</span>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!users.length && !loading && (
-          <div className="rounded-xl bg-page px-4 py-6 text-center text-sm text-muted">
-            No accounts found.
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="Accounting Executive Dashboard"
+        subtitle={`Welcome back, ${user?.loginId || 'User'}. Here is your commercial overview.`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              icon={ShoppingCart}
+              onClick={() => navigate('/sales-orders/new')}
+            >
+              New Sales Order
+            </Button>
+            <Button
+              variant="primary"
+              icon={Truck}
+              onClick={() => navigate('/purchase-orders/new')}
+            >
+              New Purchase Order
+            </Button>
           </div>
-        )}
+        }
+      />
+
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Total Sales"
+          value={formatCurrency(metrics.totalSales)}
+          subtitle="All confirmed & invoiced sales"
+          icon={ShoppingCart}
+          color="indigo"
+          trend={14.2}
+          trendLabel="vs last quarter"
+          onClick={() => navigate('/sales-orders')}
+        />
+
+        <StatCard
+          title="Total Purchases"
+          value={formatCurrency(metrics.totalPurchases)}
+          subtitle="Procurement & supply costs"
+          icon={Truck}
+          color="slate"
+          trend={-3.8}
+          trendLabel="vs last quarter"
+          onClick={() => navigate('/purchase-orders')}
+        />
+
+        <StatCard
+          title="Accounts Receivable"
+          value={formatCurrency(metrics.receivables)}
+          subtitle="Unpaid customer invoices"
+          icon={ArrowDownLeft}
+          color="emerald"
+          onClick={() => navigate('/invoices')}
+        />
+
+        <StatCard
+          title="Accounts Payable"
+          value={formatCurrency(metrics.payables)}
+          subtitle="Unpaid supplier bills"
+          icon={ArrowUpRight}
+          color="rose"
+          onClick={() => navigate('/vendor-bills')}
+        />
       </div>
-    </div>
-  );
-}
 
-function StatusBadge({ status }) {
-  const styles = status === 'PENDING'
-    ? 'bg-amber-100 text-amber-700'
-    : status === 'REJECTED'
-      ? 'bg-danger/10 text-danger'
-      : 'bg-success/10 text-success';
+      {/* Secondary Metrics Bar */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          title="Cash & Bank Balance"
+          value={formatCurrency(metrics.cashBankBalance)}
+          subtitle="Chase Checking & Cash Register"
+          icon={Wallet}
+          color="sky"
+          onClick={() => navigate('/accounts')}
+        />
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-bold ${styles}`}>{status}</span>;
-}
+        <StatCard
+          title="Net Operating Profit"
+          value={formatCurrency(metrics.netProfit)}
+          subtitle="Gross Revenue less Direct Costs"
+          icon={TrendingUp}
+          color={metrics.netProfit >= 0 ? 'emerald' : 'rose'}
+          onClick={() => navigate('/reports/profit-loss')}
+        />
 
-function InfoCard({ label, value, success = false }) {
-  return (
-    <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
-      <p className="text-sm font-semibold text-muted">{label}</p>
-      <p className={`mt-2 text-xl font-bold ${success ? 'text-success' : 'text-ink'}`}>{value}</p>
+        <StatCard
+          title="Budget Utilization"
+          value={`${metrics.budgetUtilization}%`}
+          subtitle={`${formatCurrency(metrics.totalPracticalBudget)} of ${formatCurrency(metrics.totalPlannedBudget)}`}
+          icon={Target}
+          color={metrics.budgetUtilization > 85 ? 'amber' : 'indigo'}
+          onClick={() => navigate('/reports/budget')}
+        />
+      </div>
+
+      {/* Revenue & Purchases Monthly Chart */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Revenue vs. Procurement Trend</CardTitle>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Monthly comparison of sales revenues against purchasing expenditures (USD)
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/reports/profit-loss')}
+          >
+            Full P&L Report
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={metrics.revenueMonthly}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 12 }}
+                  tickFormatter={(v) => `$${v / 1000}k`}
+                />
+                <Tooltip
+                  formatter={(val) => formatCurrency(val)}
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="sales" name="Sales Revenue" fill="#312e81" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="purchases" name="Purchases / Costs" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Invoices & Bills Two-Column Feed */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Recent Invoices */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-indigo-700" />
+              <CardTitle>Recent Customer Invoices</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={ArrowRight}
+              onClick={() => navigate('/invoices')}
+            >
+              All Invoices
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-slate-100">
+              {recentInvoices.map((inv) => (
+                <div
+                  key={inv.id}
+                  onClick={() => navigate(`/invoices/${inv.id}`)}
+                  className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition"
+                >
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">
+                      {inv.invoiceNumber}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {inv.customerName} • {formatDate(inv.invoiceDate)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-slate-900 text-sm">
+                      {formatCurrency(inv.total)}
+                    </div>
+                    <Badge status={inv.status} size="sm" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Vendor Bills */}
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-slate-700" />
+              <CardTitle>Recent Vendor Bills</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={ArrowRight}
+              onClick={() => navigate('/vendor-bills')}
+            >
+              All Bills
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-slate-100">
+              {recentBills.map((bill) => (
+                <div
+                  key={bill.id}
+                  onClick={() => navigate(`/vendor-bills/${bill.id}`)}
+                  className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition"
+                >
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">
+                      {bill.billNumber}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {bill.vendorName} • {formatDate(bill.billDate)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-slate-900 text-sm">
+                      {formatCurrency(bill.total)}
+                    </div>
+                    <Badge status={bill.status} size="sm" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

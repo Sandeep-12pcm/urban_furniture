@@ -276,7 +276,7 @@ export function Budgets() {
                                   remaining < 0
                                     ? 'text-rose-600'
                                     : 'text-emerald-700'
-                                Welche}`}
+                                }`}
                               >
                                 {formatCurrency(remaining)}
                               </span>
