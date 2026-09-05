@@ -308,3 +308,43 @@ CREATE TABLE IF NOT EXISTS sales_orders (id UUID PRIMARY KEY,order_number TEXT N
 CREATE TABLE IF NOT EXISTS sales_order_items (id UUID PRIMARY KEY,sales_order_id UUID NOT NULL REFERENCES sales_orders(id) ON DELETE CASCADE,product_id UUID NOT NULL REFERENCES products(id),description TEXT,quantity NUMERIC(14,2) NOT NULL CHECK(quantity>0),unit_price NUMERIC(14,2) NOT NULL CHECK(unit_price>=0),tax_rate NUMERIC(5,2) NOT NULL CHECK(tax_rate IN (0,5,12,18,28)),tax_amount NUMERIC(14,2) NOT NULL,line_subtotal NUMERIC(14,2) NOT NULL,line_total NUMERIC(14,2) NOT NULL,line_order INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS customer_invoices (id UUID PRIMARY KEY,invoice_number TEXT NOT NULL UNIQUE,customer_id UUID NOT NULL REFERENCES contacts(id),sales_order_id UUID REFERENCES sales_orders(id),invoice_date DATE NOT NULL,due_date DATE NOT NULL,reference TEXT,notes TEXT,subtotal NUMERIC(14,2) NOT NULL DEFAULT 0,tax_amount NUMERIC(14,2) NOT NULL DEFAULT 0,total_amount NUMERIC(14,2) NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','POSTED','CANCELLED')),payment_status TEXT NOT NULL DEFAULT 'UNPAID' CHECK(payment_status IN ('UNPAID','PARTIALLY_PAID','PAID','OVERDUE')),created_by_id UUID NOT NULL REFERENCES users(id),posted_by_id UUID REFERENCES users(id),posted_at TIMESTAMPTZ,accounting_entry_id UUID UNIQUE REFERENCES journal_entries(id),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),CHECK(due_date>=invoice_date));
 CREATE TABLE IF NOT EXISTS customer_invoice_items (id UUID PRIMARY KEY,customer_invoice_id UUID NOT NULL REFERENCES customer_invoices(id) ON DELETE CASCADE,product_id UUID NOT NULL REFERENCES products(id),description TEXT,quantity NUMERIC(14,2) NOT NULL CHECK(quantity>0),unit_price NUMERIC(14,2) NOT NULL CHECK(unit_price>=0),tax_rate NUMERIC(5,2) NOT NULL CHECK(tax_rate IN (0,5,12,18,28)),tax_amount NUMERIC(14,2) NOT NULL,line_subtotal NUMERIC(14,2) NOT NULL,line_total NUMERIC(14,2) NOT NULL,line_order INTEGER NOT NULL);
+
+-- ============================================================
+-- PHASE 5: PAYMENTS
+-- Every payment is recorded and posted atomically (record -> balanced
+-- journal entry -> posted, in one flow) rather than having its own
+-- draft/post lifecycle. Cancelling a payment never mutates the original
+-- posted journal entry; it posts a reversing entry instead, so the
+-- accounting trail is never rewritten after the fact.
+-- ============================================================
+CREATE SEQUENCE IF NOT EXISTS payment_number_seq START 1;
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY,
+  payment_number TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL CHECK (type IN ('CUSTOMER', 'VENDOR')),
+  contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE RESTRICT,
+  customer_invoice_id UUID NULL REFERENCES customer_invoices(id) ON DELETE RESTRICT,
+  vendor_bill_id UUID NULL REFERENCES vendor_bills(id) ON DELETE RESTRICT,
+  payment_date DATE NOT NULL,
+  amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+  method TEXT NOT NULL CHECK (method IN ('CASH', 'BANK')),
+  reference TEXT NULL,
+  notes TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'POSTED' CHECK (status IN ('POSTED', 'CANCELLED')),
+  accounting_entry_id UUID NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  reversal_entry_id UUID NULL REFERENCES journal_entries(id) ON DELETE RESTRICT,
+  created_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  cancelled_by_id UUID NULL REFERENCES users(id) ON DELETE RESTRICT,
+  cancelled_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT payments_target_matches_type CHECK (
+    (type = 'CUSTOMER' AND customer_invoice_id IS NOT NULL AND vendor_bill_id IS NULL) OR
+    (type = 'VENDOR' AND vendor_bill_id IS NOT NULL AND customer_invoice_id IS NULL)
+  )
+);
+CREATE INDEX IF NOT EXISTS idx_payments_customer_invoice ON payments(customer_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_vendor_bill ON payments(vendor_bill_id);
+CREATE INDEX IF NOT EXISTS idx_payments_contact ON payments(contact_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_type ON payments(type);

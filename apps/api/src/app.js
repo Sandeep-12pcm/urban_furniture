@@ -15,6 +15,7 @@ const { budgetsRoutes } = require('./routes/budgets');
 const { journalEntriesRoutes, accountingReportsRoutes } = require('./routes/journalEntries');
 const { purchasesRoutes } = require('./routes/purchases');
 const { salesRoutes } = require('./routes/sales');
+const { paymentsRoutes } = require('./routes/payments');
 const { openApiDocument } = require('./openapi');
 
 function createApp(db = pool) {
@@ -48,14 +49,18 @@ function createApp(db = pool) {
   app.use('/api', contactsRoutes(db));
   app.use('/api', productCategoriesRoutes(db));
   app.use('/api', productsRoutes(db));
+  // accountingReportsRoutes defines literal routes like GET /accounts/balances
+  // that must be registered before accountsRoutes' GET /accounts/:id, or
+  // Express matches "balances" as the :id wildcard first and this 404s/500s.
+  app.use('/api', accountingReportsRoutes(db));
   app.use('/api', accountsRoutes(db));
   app.use('/api', journalsRoutes(db));
   app.use('/api', analyticAccountsRoutes(db));
   app.use('/api', budgetsRoutes(db));
   app.use('/api', journalEntriesRoutes(db));
-  app.use('/api', accountingReportsRoutes(db));
   app.use('/api', purchasesRoutes(db));
   app.use('/api', salesRoutes(db));
+  app.use('/api', paymentsRoutes(db));
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });

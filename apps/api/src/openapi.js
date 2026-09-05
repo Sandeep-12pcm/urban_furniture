@@ -72,8 +72,8 @@ const openApiDocument = {
   openapi: '3.0.0',
   info: {
     title: 'Urban Furniture Accounting API',
-    version: '0.2.0',
-    description: 'Express REST API for JWT authentication, RBAC, and Phase 1 Master Data.',
+    version: '0.5.0',
+    description: 'Express REST API for JWT authentication/RBAC (Phase 0), Master Data (Phase 1), the double-entry Accounting Engine (Phase 2), Purchases (Phase 3), Sales (Phase 4), and Payments (Phase 5).',
   },
   servers: [{ url: 'http://localhost:4000/api' }],
   components: {
@@ -111,19 +111,60 @@ const openApiDocument = {
     ...masterDataPaths('journals', { singular: 'journal', description: 'journals (Sales/Purchase/Bank/Cash)' }),
     ...masterDataPaths('analytic-accounts', { singular: 'analytic account', description: 'analytic accounts (Income/Expense)' }),
     ...masterDataPaths('budgets', { singular: 'budget', description: 'budgets' }),
-    '/journal-entries': { get: { summary: 'List Journal Entries', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a draft Journal Entry', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid accounting lines' }, 403: { description: 'ADMIN or ACCOUNTANT required' } } } },
-    '/journal-entries/{id}': { get: { summary: 'Get a Journal Entry', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Journal Entry', security: [{ cookieAuth: [] }] } },
-    '/journal-entries/{id}/post': { post: { summary: 'Atomically post a balanced draft Journal Entry', security: [{ cookieAuth: [] }] } },
+    '/journal-entries': { get: { summary: 'List Journal Entries (search, filter by journal/status/date, paginate)', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a draft Journal Entry', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid accounting lines' }, 403: { description: 'ADMIN or ACCOUNTANT required' } } } },
+    '/journal-entries/{id}': { get: { summary: 'Get a Journal Entry with its lines', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Journal Entry (rejected once POSTED)', security: [{ cookieAuth: [] }] } },
+    '/journal-entries/{id}/post': { post: { summary: 'Atomically post a draft Journal Entry — rejected unless total debit = total credit', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Posted' }, 400: { description: 'Not a draft, or debits and credits do not match' } } } },
     '/journal-entries/{id}/cancel': { post: { summary: 'Cancel a draft Journal Entry', security: [{ cookieAuth: [] }] } },
-    '/accounts/{id}/balance': { get: { summary: 'Get posted-account totals and balance', security: [{ cookieAuth: [] }] } },
-    '/accounts/{id}/ledger': { get: { summary: 'Get posted-account ledger with running balance', security: [{ cookieAuth: [] }] } },
-    '/accounts/balances': { get: { summary: 'List account balance summary', security: [{ cookieAuth: [] }] } },
-    '/sales/orders': { get: { summary: 'List Sales Orders (ADMIN or ACCOUNTANT)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Sales Orders' }, 401: { description: 'Authentication required' }, 403: { description: 'Sales role required' } } }, post: { summary: 'Create a draft Sales Order', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, quantity, price, or tax' } } } },
-    '/sales/orders/{id}/confirm': { post: { summary: 'Confirm a draft Sales Order without accounting impact', security: [{ cookieAuth: [] }], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Confirmed' }, 400: { description: 'Not a draft order' } } } },
+    '/accounts/{id}/balance': { get: { summary: 'Get one account\'s posted-only debit/credit totals and balance', security: [{ cookieAuth: [] }] } },
+    '/accounts/{id}/ledger': { get: { summary: 'Get one account\'s posted-only ledger with a running balance (filter by date range, journal, reference)', security: [{ cookieAuth: [] }] } },
+    '/accounts/balances': { get: { summary: 'List every account with its posted-only debit/credit totals and balance', security: [{ cookieAuth: [] }] } },
+    '/accounting/summary': { get: { summary: 'Count and total Journal Entries grouped by status', security: [{ cookieAuth: [] }] } },
+
+    // Sales — Sales Order creation/confirmation never posts accounting; only
+    // Customer Invoice posting does (Debit Debtors, Credit Sales Income + Output Tax Payable).
+    '/sales/orders': {
+      get: { summary: 'List Sales Orders (search, filter by status/customer, paginate)', security: [{ cookieAuth: [] }] },
+      post: { summary: 'Create a draft Sales Order — customer must be an active Customer/Both contact, products must be active', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, quantity, price, or tax' } } },
+    },
+    '/sales/orders/{id}': { get: { summary: 'Get a Sales Order with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Sales Order (rejected once CONFIRMED/CANCELLED)', security: [{ cookieAuth: [] }] } },
+    '/sales/orders/{id}/confirm': { post: { summary: 'Confirm a draft Sales Order — no accounting impact', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Confirmed' }, 400: { description: 'Not a draft order' } } } },
     '/sales/orders/{id}/cancel': { post: { summary: 'Cancel a draft Sales Order', security: [{ cookieAuth: [] }] } },
-    '/sales/invoices': { get: { summary: 'List Customer Invoices (ADMIN or ACCOUNTANT)', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a draft Customer Invoice', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, dates, quantity, price, or tax' } } } },
-    '/sales/invoices/{id}/post': { post: { summary: 'Post a draft Customer Invoice and create its balanced Sales Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Invoice posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
+    '/sales/invoices': {
+      get: { summary: 'List Customer Invoices (search, filter by status/paymentStatus/customer, paginate)', security: [{ cookieAuth: [] }] },
+      post: { summary: 'Create a draft Customer Invoice, optionally linked to a confirmed Sales Order — no accounting impact', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, dates, quantity, price, or tax' } } },
+    },
+    '/sales/invoices/from-order/{orderId}': { get: { summary: 'Prefill a Customer Invoice from a confirmed Sales Order (does not create it)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Prefilled invoice payload' }, 400: { description: 'Order is not confirmed' } } } },
+    '/sales/invoices/{id}': { get: { summary: 'Get a Customer Invoice with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Customer Invoice (rejected once POSTED/CANCELLED)', security: [{ cookieAuth: [] }] } },
+    '/sales/invoices/{id}/post': { post: { summary: 'Post a draft Customer Invoice and atomically create its balanced Sales Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Invoice posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
     '/sales/invoices/{id}/cancel': { post: { summary: 'Cancel a draft Customer Invoice', security: [{ cookieAuth: [] }] } },
+    '/sales/invoices/{id}/outstanding': { get: { summary: 'Total/paid/outstanding amount for a Customer Invoice', security: [{ cookieAuth: [] }] } },
+    '/sales/invoices/{id}/payments': { post: { summary: 'Record a Customer Payment — Debit Cash/Bank, Credit Debtors; rejects overpayment', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Payment recorded and posted' }, 400: { description: 'Invoice not posted, already fully paid, or amount invalid/exceeds outstanding' } } } },
+
+    // Purchases — mirrors Sales: PO confirmation never posts accounting; only
+    // Vendor Bill posting does (Debit Purchase Expense, Credit Creditors).
+    '/purchases/orders': {
+      get: { summary: 'List Purchase Orders (search, filter by status/vendor, paginate)', security: [{ cookieAuth: [] }] },
+      post: { summary: 'Create a draft Purchase Order — vendor must be an active Vendor/Both contact, products must be active', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid vendor, product, quantity, price, or tax' } } },
+    },
+    '/purchases/orders/{id}': { get: { summary: 'Get a Purchase Order with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Purchase Order (rejected once CONFIRMED/CANCELLED)', security: [{ cookieAuth: [] }] } },
+    '/purchases/orders/{id}/confirm': { post: { summary: 'Confirm a draft Purchase Order — no accounting impact', security: [{ cookieAuth: [] }] } },
+    '/purchases/orders/{id}/cancel': { post: { summary: 'Cancel a draft Purchase Order', security: [{ cookieAuth: [] }] } },
+    '/purchases/bills': {
+      get: { summary: 'List Vendor Bills (search, filter by status/paymentStatus/vendor, paginate)', security: [{ cookieAuth: [] }] },
+      post: { summary: 'Create a draft Vendor Bill, optionally linked to a confirmed Purchase Order for the same vendor — no accounting impact', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid vendor, product, dates, quantity, price, or tax' } } },
+    },
+    '/purchases/bills/from-order/{orderId}': { get: { summary: 'Prefill a Vendor Bill from a confirmed Purchase Order (does not create it)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Prefilled bill payload' }, 400: { description: 'Order is not confirmed' } } } },
+    '/purchases/bills/{id}': { get: { summary: 'Get a Vendor Bill with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Vendor Bill (rejected once POSTED)', security: [{ cookieAuth: [] }] } },
+    '/purchases/bills/{id}/post': { post: { summary: 'Post a draft Vendor Bill and atomically create its balanced Purchase Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Bill posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
+    '/purchases/bills/{id}/cancel': { post: { summary: 'Cancel a draft Vendor Bill', security: [{ cookieAuth: [] }] } },
+    '/purchases/bills/{id}/outstanding': { get: { summary: 'Total/paid/outstanding amount for a Vendor Bill', security: [{ cookieAuth: [] }] } },
+    '/purchases/bills/{id}/payments': { post: { summary: 'Record a Vendor Payment — Debit Creditors, Credit Cash/Bank; rejects overpayment', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Payment recorded and posted' }, 400: { description: 'Bill not posted, already fully paid, or amount invalid/exceeds outstanding' } } } },
+
+    // Payments — cancelling never mutates the original posted entry; it
+    // posts a reversing entry (debit/credit swapped) and recomputes payment status.
+    '/payments': { get: { summary: 'List all payments (search, filter by type/status/contact/invoice/bill, paginate)', security: [{ cookieAuth: [] }] } },
+    '/payments/{id}': { get: { summary: 'Get a payment by id', security: [{ cookieAuth: [] }] } },
+    '/payments/{id}/cancel': { post: { summary: 'Cancel a posted payment via a reversing Journal Entry; recomputes the invoice/bill payment status', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Cancelled with reversal entry' }, 400: { description: 'Payment already cancelled' } } } },
   },
 };
 

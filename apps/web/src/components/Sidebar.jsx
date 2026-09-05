@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Boxes,
-  Briefcase,
   Building2,
   ChevronRight,
   LandmarkIcon,
@@ -41,6 +40,7 @@ const purchaseLinks = [
 const salesLinks = [
   { to: '/sales/orders', label: 'Sales Orders', icon: ShoppingCart },
   { to: '/sales/invoices', label: 'Customer Invoices', icon: ReceiptText },
+  { to: '/payments', label: 'Payments', icon: Wallet },
 ];
 
 function NavItem({ to, label, icon: Icon }) {
@@ -122,15 +122,8 @@ export function Sidebar({ user, open, onClose }) {
             <div className="space-y-1">
               <div className="flex cursor-not-allowed items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white/35">
                 <span className="flex items-center gap-3">
-                  <Briefcase className="h-4 w-4" />
-                  Transactions
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </div>
-              <div className="flex cursor-not-allowed items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white/35">
-                <span className="flex items-center gap-3">
                   <BarChart3 className="h-4 w-4" />
-                  Reports
+                  Financial Reports
                 </span>
                 <ChevronRight className="h-4 w-4" />
               </div>

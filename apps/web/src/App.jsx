@@ -23,8 +23,15 @@ import { BudgetsPage } from './pages/master-data/BudgetsPage.jsx';
 import { JournalEntriesPage } from './pages/accounting/JournalEntriesPage.jsx';
 import { JournalEntryDetailPage } from './pages/accounting/JournalEntryDetailPage.jsx';
 import { AccountBalancesPage, LedgerPage } from './pages/accounting/AccountingReportsPage.jsx';
-import { PurchaseOrdersPage, VendorBillsPage } from './pages/purchases/PurchasesPage.jsx';
-import { SalesOrdersPage, CustomerInvoicesPage } from './pages/sales/SalesPage.jsx';
+import { PurchaseOrdersPage } from './pages/purchases/PurchaseOrdersPage.jsx';
+import { PurchaseOrderDetailPage } from './pages/purchases/PurchaseOrderDetailPage.jsx';
+import { VendorBillsPage } from './pages/purchases/VendorBillsPage.jsx';
+import { VendorBillDetailPage } from './pages/purchases/VendorBillDetailPage.jsx';
+import { SalesOrdersPage } from './pages/sales/SalesOrdersPage.jsx';
+import { SalesOrderDetailPage } from './pages/sales/SalesOrderDetailPage.jsx';
+import { CustomerInvoicesPage } from './pages/sales/CustomerInvoicesPage.jsx';
+import { CustomerInvoiceDetailPage } from './pages/sales/CustomerInvoiceDetailPage.jsx';
+import { PaymentsPage } from './pages/payments/PaymentsPage.jsx';
 
 function ProtectedRoute({ roles, user }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -133,9 +140,14 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/accounting/ledger" element={<LedgerPage />} />
                 <Route path="/accounting/account-balances" element={<AccountBalancesPage />} />
                 <Route path="/purchases/orders" element={<PurchaseOrdersPage />} />
+                <Route path="/purchases/orders/:id" element={<PurchaseOrderDetailPage />} />
                 <Route path="/purchases/bills" element={<VendorBillsPage />} />
+                <Route path="/purchases/bills/:id" element={<VendorBillDetailPage />} />
                 <Route path="/sales/orders" element={<SalesOrdersPage />} />
+                <Route path="/sales/orders/:id" element={<SalesOrderDetailPage />} />
                 <Route path="/sales/invoices" element={<CustomerInvoicesPage />} />
+                <Route path="/sales/invoices/:id" element={<CustomerInvoiceDetailPage />} />
+                <Route path="/payments" element={<PaymentsPage />} />
               </Route>
             </Route>
           </Route>

@@ -41,17 +41,56 @@ export const journalEntriesApi = {
   post: (id) => apiRequest(`/journal-entries/${id}/post`, { method: 'POST' }),
   cancel: (id) => apiRequest(`/journal-entries/${id}/cancel`, { method: 'POST' }),
 };
+
 export const accountingApi = {
   balances: (params = {}) => apiRequest(`/accounts/balances${toQueryString(params)}`),
   ledger: (id, params = {}) => apiRequest(`/accounts/${id}/ledger${toQueryString(params)}`),
 };
+
 export const purchasesApi = {
-  orders: () => apiRequest('/purchases/orders'), order: (id) => apiRequest(`/purchases/orders/${id}`), createOrder: (body) => apiRequest('/purchases/orders', { method: 'POST', body }), confirmOrder: (id) => apiRequest(`/purchases/orders/${id}/confirm`, { method: 'POST' }), cancelOrder: (id) => apiRequest(`/purchases/orders/${id}/cancel`, { method: 'POST' }),
-  bills: () => apiRequest('/purchases/bills'), bill: (id) => apiRequest(`/purchases/bills/${id}`), createBill: (body) => apiRequest('/purchases/bills', { method: 'POST', body }), postBill: (id) => apiRequest(`/purchases/bills/${id}/post`, { method: 'POST' }), cancelBill: (id) => apiRequest(`/purchases/bills/${id}/cancel`, { method: 'POST' }), billFromOrder: (id) => apiRequest(`/purchases/bills/from-order/${id}`),
+  orders: (params = {}) => apiRequest(`/purchases/orders${toQueryString(params)}`),
+  order: (id) => apiRequest(`/purchases/orders/${id}`),
+  createOrder: (body) => apiRequest('/purchases/orders', { method: 'POST', body }),
+  updateOrder: (id, body) => apiRequest(`/purchases/orders/${id}`, { method: 'PATCH', body }),
+  confirmOrder: (id) => apiRequest(`/purchases/orders/${id}/confirm`, { method: 'POST' }),
+  cancelOrder: (id) => apiRequest(`/purchases/orders/${id}/cancel`, { method: 'POST' }),
+
+  bills: (params = {}) => apiRequest(`/purchases/bills${toQueryString(params)}`),
+  bill: (id) => apiRequest(`/purchases/bills/${id}`),
+  createBill: (body) => apiRequest('/purchases/bills', { method: 'POST', body }),
+  updateBill: (id, body) => apiRequest(`/purchases/bills/${id}`, { method: 'PATCH', body }),
+  postBill: (id) => apiRequest(`/purchases/bills/${id}/post`, { method: 'POST' }),
+  cancelBill: (id) => apiRequest(`/purchases/bills/${id}/cancel`, { method: 'POST' }),
+  billFromOrder: (orderId) => apiRequest(`/purchases/bills/from-order/${orderId}`),
+
+  billOutstanding: (id) => apiRequest(`/purchases/bills/${id}/outstanding`),
+  recordBillPayment: (id, body) => apiRequest(`/purchases/bills/${id}/payments`, { method: 'POST', body }),
 };
+
 export const salesApi = {
-  orders: () => apiRequest('/sales/orders'),
-  invoices: () => apiRequest('/sales/invoices'),
+  orders: (params = {}) => apiRequest(`/sales/orders${toQueryString(params)}`),
+  order: (id) => apiRequest(`/sales/orders/${id}`),
+  createOrder: (body) => apiRequest('/sales/orders', { method: 'POST', body }),
+  updateOrder: (id, body) => apiRequest(`/sales/orders/${id}`, { method: 'PATCH', body }),
+  confirmOrder: (id) => apiRequest(`/sales/orders/${id}/confirm`, { method: 'POST' }),
+  cancelOrder: (id) => apiRequest(`/sales/orders/${id}/cancel`, { method: 'POST' }),
+
+  invoices: (params = {}) => apiRequest(`/sales/invoices${toQueryString(params)}`),
+  invoice: (id) => apiRequest(`/sales/invoices/${id}`),
+  createInvoice: (body) => apiRequest('/sales/invoices', { method: 'POST', body }),
+  updateInvoice: (id, body) => apiRequest(`/sales/invoices/${id}`, { method: 'PATCH', body }),
+  postInvoice: (id) => apiRequest(`/sales/invoices/${id}/post`, { method: 'POST' }),
+  cancelInvoice: (id) => apiRequest(`/sales/invoices/${id}/cancel`, { method: 'POST' }),
+  invoiceFromOrder: (orderId) => apiRequest(`/sales/invoices/from-order/${orderId}`),
+
+  invoiceOutstanding: (id) => apiRequest(`/sales/invoices/${id}/outstanding`),
+  recordInvoicePayment: (id, body) => apiRequest(`/sales/invoices/${id}/payments`, { method: 'POST', body }),
+};
+
+export const paymentsApi = {
+  list: (params = {}) => apiRequest(`/payments${toQueryString(params)}`),
+  get: (id) => apiRequest(`/payments/${id}`),
+  cancel: (id) => apiRequest(`/payments/${id}/cancel`, { method: 'POST' }),
 };
 
 export function fetchAssignableUsers() {

@@ -43,7 +43,16 @@ async function getEntry(db, id) {
   return serializeEntry(header.rows[0], lines.rows);
 }
 
-async function createDraftEntry(db, userId, body) {
+// Callers that build entryDate from a DB row (Sales/Purchase posting) get a
+// JS Date back from `pg` for DATE columns, not a "YYYY-MM-DD" string — but
+// validateEntry (and every UI date input) expects a plain date string.
+// Normalize once here so every caller of createDraftEntry works the same way.
+function toDateOnly(value) {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+}
+
+async function createDraftEntry(db, userId, rawBody) {
+  const body = { ...rawBody, entryDate: toDateOnly(rawBody.entryDate) };
   const errors = validateEntry(body); if (errors.length) throw Object.assign(new Error(errors[0]), { status: 400, errors });
   return withTransaction(db, async (tx) => {
     await assertReferences(tx, body.journalId, body.lines);
