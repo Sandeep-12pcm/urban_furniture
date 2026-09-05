@@ -1,0 +1,20 @@
+const express=require('express');
+const {authenticate,authorize}=require('../middleware/auth');
+const purchase=require('../services/purchaseService');
+const access=db=>[authenticate(db),authorize('ADMIN','ACCOUNTANT')];
+function purchasesRoutes(db){const r=express.Router();const a=access(db);
+ r.get('/purchases/orders',...a,async(req,res,next)=>{try{const q=[];const p=[];const add=(s,v)=>{p.push(v);q.push(s.replace('?',`$${p.length}`));};if(req.query.status)add('o.status=?',req.query.status);if(req.query.vendorId)add('o.vendor_id=?',req.query.vendorId);if(req.query.search){p.push(`%${String(req.query.search).toLowerCase()}%`);q.push(`(lower(o.order_number) LIKE $${p.length} OR lower(coalesce(o.reference,'')) LIKE $${p.length} OR lower(c.name) LIKE $${p.length})`);}const w=q.length?`WHERE ${q.join(' AND ')}`:'';const rows=await db.query(`SELECT o.id,o.order_number AS "orderNumber",o.order_date AS "orderDate",o.status,o.total_amount::text AS "totalAmount",c.name AS "vendorName" FROM purchase_orders o JOIN contacts c ON c.id=o.vendor_id ${w} ORDER BY o.order_date DESC,o.order_number DESC`,p);res.json({purchaseOrders:rows.rows});}catch(e){next(e);}});
+ r.post('/purchases/orders',...a,async(req,res)=>{try{res.status(201).json({purchaseOrder:await purchase.createOrder(db,req.user.id,req.body)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.get('/purchases/orders/:id',...a,async(req,res,next)=>{try{const x=await purchase.getOrder(db,req.params.id);if(!x)return res.status(404).json({message:'Purchase Order not found.'});res.json({purchaseOrder:x});}catch(e){next(e);}});
+ r.patch('/purchases/orders/:id',...a,async(req,res)=>{try{res.json({purchaseOrder:await purchase.updateOrder(db,req.params.id,req.user.id,req.body)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.post('/purchases/orders/:id/confirm',...a,async(req,res)=>{try{res.json({purchaseOrder:await purchase.transitionOrder(db,req.params.id,req.user.id,'CONFIRMED')});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.post('/purchases/orders/:id/cancel',...a,async(req,res)=>{try{res.json({purchaseOrder:await purchase.transitionOrder(db,req.params.id,req.user.id,'CANCELLED')});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.get('/purchases/bills',...a,async(req,res,next)=>{try{const rows=await db.query(`SELECT b.id,b.bill_number AS "billNumber",b.vendor_invoice_number AS "vendorInvoiceNumber",b.invoice_date AS "invoiceDate",b.due_date AS "dueDate",b.status,b.payment_status AS "paymentStatus",b.total_amount::text AS "totalAmount",c.name AS "vendorName" FROM vendor_bills b JOIN contacts c ON c.id=b.vendor_id ORDER BY b.invoice_date DESC,b.bill_number DESC`);res.json({vendorBills:rows.rows});}catch(e){next(e);}});
+ r.post('/purchases/bills',...a,async(req,res)=>{try{res.status(201).json({vendorBill:await purchase.createBill(db,req.user.id,req.body)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.get('/purchases/bills/from-order/:orderId',...a,async(req,res)=>{try{res.json({vendorBill:await purchase.billFromOrder(db,req.params.orderId)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.get('/purchases/bills/:id',...a,async(req,res,next)=>{try{const x=await purchase.getBill(db,req.params.id);if(!x)return res.status(404).json({message:'Vendor Bill not found.'});res.json({vendorBill:x});}catch(e){next(e);}});
+ r.patch('/purchases/bills/:id',...a,async(req,res)=>{try{res.json({vendorBill:await purchase.updateBill(db,req.params.id,req.user.id,req.body)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.post('/purchases/bills/:id/post',...a,async(req,res)=>{try{res.json({vendorBill:await purchase.postBill(db,req.params.id,req.user.id)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ r.post('/purchases/bills/:id/cancel',...a,async(req,res)=>{try{res.json({vendorBill:await purchase.cancelBill(db,req.params.id,req.user.id)});}catch(e){res.status(e.status||500).json({message:e.message});}});
+ return r;}
+module.exports={purchasesRoutes};

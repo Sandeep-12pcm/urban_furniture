@@ -11,6 +11,9 @@ import {
   Tags,
   Users,
   Wallet,
+  BookOpen,
+  ShoppingCart,
+  ReceiptText,
   X,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -25,6 +28,19 @@ const masterDataLinks = [
   { to: '/master-data/journals', label: 'Journals', icon: NotebookText },
   { to: '/master-data/analytic-accounts', label: 'Analytic Accounts', icon: Tags },
   { to: '/master-data/budgets', label: 'Budgets', icon: Wallet },
+];
+const accountingLinks = [
+  { to: '/accounting/journal-entries', label: 'Journal Entries', icon: BookOpen },
+  { to: '/accounting/ledger', label: 'Ledger', icon: NotebookText },
+  { to: '/accounting/account-balances', label: 'Account Balances', icon: LandmarkIcon },
+];
+const purchaseLinks = [
+  { to: '/purchases/orders', label: 'Purchase Orders', icon: ShoppingCart },
+  { to: '/purchases/bills', label: 'Vendor Bills', icon: NotebookText },
+];
+const salesLinks = [
+  { to: '/sales/orders', label: 'Sales Orders', icon: ShoppingCart },
+  { to: '/sales/invoices', label: 'Customer Invoices', icon: ReceiptText },
 ];
 
 function NavItem({ to, label, icon: Icon }) {
@@ -90,6 +106,15 @@ export function Sidebar({ user, open, onClose }) {
                 ))}
               </div>
             </div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Accounting</p><div className="space-y-1">{accountingLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Purchases</p><div className="space-y-1">{purchaseLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Sales</p><div className="space-y-1">{salesLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
           )}
 
           <div>

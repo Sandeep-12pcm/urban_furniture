@@ -20,6 +20,11 @@ import { AccountsPage } from './pages/master-data/AccountsPage.jsx';
 import { JournalsPage } from './pages/master-data/JournalsPage.jsx';
 import { AnalyticAccountsPage } from './pages/master-data/AnalyticAccountsPage.jsx';
 import { BudgetsPage } from './pages/master-data/BudgetsPage.jsx';
+import { JournalEntriesPage } from './pages/accounting/JournalEntriesPage.jsx';
+import { JournalEntryDetailPage } from './pages/accounting/JournalEntryDetailPage.jsx';
+import { AccountBalancesPage, LedgerPage } from './pages/accounting/AccountingReportsPage.jsx';
+import { PurchaseOrdersPage, VendorBillsPage } from './pages/purchases/PurchasesPage.jsx';
+import { SalesOrdersPage, CustomerInvoicesPage } from './pages/sales/SalesPage.jsx';
 
 function ProtectedRoute({ roles, user }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -123,6 +128,14 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/master-data/journals" element={<JournalsPage />} />
                 <Route path="/master-data/analytic-accounts" element={<AnalyticAccountsPage />} />
                 <Route path="/master-data/budgets" element={<BudgetsPage />} />
+                <Route path="/accounting/journal-entries" element={<JournalEntriesPage />} />
+                <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailPage />} />
+                <Route path="/accounting/ledger" element={<LedgerPage />} />
+                <Route path="/accounting/account-balances" element={<AccountBalancesPage />} />
+                <Route path="/purchases/orders" element={<PurchaseOrdersPage />} />
+                <Route path="/purchases/bills" element={<VendorBillsPage />} />
+                <Route path="/sales/orders" element={<SalesOrdersPage />} />
+                <Route path="/sales/invoices" element={<CustomerInvoicesPage />} />
               </Route>
             </Route>
           </Route>

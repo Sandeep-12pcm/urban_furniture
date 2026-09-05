@@ -13,6 +13,7 @@ const ACCOUNTS = [
   { code: '1002', name: 'Bank', type: 'ASSET' },
   { code: '1003', name: 'Debtors', type: 'ASSET' },
   { code: '2001', name: 'Creditors', type: 'LIABILITY' },
+  { code: '2002', name: 'Output Tax Payable', type: 'LIABILITY' },
   { code: '3001', name: 'Owner Capital', type: 'CAPITAL' },
   { code: '4001', name: 'Sales Income', type: 'INCOME' },
   { code: '5001', name: 'Purchase Expense', type: 'EXPENSE' },

@@ -12,6 +12,9 @@ const { accountsRoutes } = require('./routes/accounts');
 const { journalsRoutes } = require('./routes/journals');
 const { analyticAccountsRoutes } = require('./routes/analyticAccounts');
 const { budgetsRoutes } = require('./routes/budgets');
+const { journalEntriesRoutes, accountingReportsRoutes } = require('./routes/journalEntries');
+const { purchasesRoutes } = require('./routes/purchases');
+const { salesRoutes } = require('./routes/sales');
 const { openApiDocument } = require('./openapi');
 
 function createApp(db = pool) {
@@ -49,6 +52,10 @@ function createApp(db = pool) {
   app.use('/api', journalsRoutes(db));
   app.use('/api', analyticAccountsRoutes(db));
   app.use('/api', budgetsRoutes(db));
+  app.use('/api', journalEntriesRoutes(db));
+  app.use('/api', accountingReportsRoutes(db));
+  app.use('/api', purchasesRoutes(db));
+  app.use('/api', salesRoutes(db));
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });

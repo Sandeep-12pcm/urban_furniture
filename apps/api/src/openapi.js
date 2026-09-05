@@ -111,6 +111,13 @@ const openApiDocument = {
     ...masterDataPaths('journals', { singular: 'journal', description: 'journals (Sales/Purchase/Bank/Cash)' }),
     ...masterDataPaths('analytic-accounts', { singular: 'analytic account', description: 'analytic accounts (Income/Expense)' }),
     ...masterDataPaths('budgets', { singular: 'budget', description: 'budgets' }),
+    '/journal-entries': { get: { summary: 'List Journal Entries', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a draft Journal Entry', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid accounting lines' }, 403: { description: 'ADMIN or ACCOUNTANT required' } } } },
+    '/journal-entries/{id}': { get: { summary: 'Get a Journal Entry', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Journal Entry', security: [{ cookieAuth: [] }] } },
+    '/journal-entries/{id}/post': { post: { summary: 'Atomically post a balanced draft Journal Entry', security: [{ cookieAuth: [] }] } },
+    '/journal-entries/{id}/cancel': { post: { summary: 'Cancel a draft Journal Entry', security: [{ cookieAuth: [] }] } },
+    '/accounts/{id}/balance': { get: { summary: 'Get posted-account totals and balance', security: [{ cookieAuth: [] }] } },
+    '/accounts/{id}/ledger': { get: { summary: 'Get posted-account ledger with running balance', security: [{ cookieAuth: [] }] } },
+    '/accounts/balances': { get: { summary: 'List account balance summary', security: [{ cookieAuth: [] }] } },
   },
 };
 
