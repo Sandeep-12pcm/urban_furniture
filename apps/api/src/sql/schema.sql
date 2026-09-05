@@ -348,3 +348,48 @@ CREATE INDEX IF NOT EXISTS idx_payments_vendor_bill ON payments(vendor_bill_id);
 CREATE INDEX IF NOT EXISTS idx_payments_contact ON payments(contact_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_type ON payments(type);
+
+-- ============================================================
+-- PHASE 6: INVENTORY. inventory_movements is the immutable stock ledger;
+-- inventory_stock is its transactionally-maintained current balance.
+-- Services and combo products deliberately have no physical stock here.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS inventory_stock (
+  id UUID PRIMARY KEY,
+  product_id UUID NOT NULL UNIQUE REFERENCES products(id) ON DELETE RESTRICT,
+  quantity NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  average_cost NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (average_cost >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_stock_product ON inventory_stock(product_id);
+
+CREATE TABLE IF NOT EXISTS inventory_movements (
+  id UUID PRIMARY KEY,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  movement_type TEXT NOT NULL CHECK (movement_type IN ('STOCK_IN','STOCK_OUT','ADJUSTMENT_IN','ADJUSTMENT_OUT')),
+  quantity NUMERIC(14,2) NOT NULL CHECK (quantity > 0),
+  unit_cost NUMERIC(14,2) NULL CHECK (unit_cost >= 0),
+  reference_type TEXT NOT NULL,
+  reference_id UUID NULL,
+  movement_date DATE NOT NULL,
+  notes TEXT NULL,
+  created_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movements_source_once
+  ON inventory_movements(product_id, movement_type, reference_type, reference_id)
+  WHERE reference_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_product_date ON inventory_movements(product_id, movement_date DESC);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_type ON inventory_movements(movement_type);
+
+-- PHASE 8: operational administration. Historical financial rows remain
+-- immutable; periods/settings/taxes are separate configuration records.
+CREATE TABLE IF NOT EXISTS fiscal_periods (
+ id UUID PRIMARY KEY,name TEXT NOT NULL UNIQUE,start_date DATE NOT NULL,end_date DATE NOT NULL,status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','CLOSED')),
+ created_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,closed_by_id UUID NULL REFERENCES users(id) ON DELETE RESTRICT,closed_at TIMESTAMPTZ NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),CHECK(end_date>=start_date)
+);
+CREATE INDEX IF NOT EXISTS idx_fiscal_periods_dates ON fiscal_periods(start_date,end_date,status);
+CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY,setting_value TEXT NOT NULL,updated_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE TABLE IF NOT EXISTS tax_configurations (id UUID PRIMARY KEY,name TEXT NOT NULL,rate NUMERIC(5,2) NOT NULL CHECK(rate>=0 AND rate<=100),tax_type TEXT NOT NULL DEFAULT 'GST',tax_account_id UUID NULL REFERENCES accounts(id) ON DELETE RESTRICT,status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED')),created_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),archived_at TIMESTAMPTZ NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tax_configurations_name_active ON tax_configurations(lower(name)) WHERE status='ACTIVE';

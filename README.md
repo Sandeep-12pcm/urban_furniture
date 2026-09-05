@@ -173,3 +173,14 @@ created and migrated automatically by `apps/api/test/globalSetup.js`. 54
 tests cover auth/RBAC (pre-existing) plus create/update/archive/restore,
 validation, duplicate/invalid data, and authorization for every Phase 1
 resource.
+
+## Production checklist
+
+- Set `NODE_ENV=production`, a unique `DATABASE_URL`, and a `JWT_SECRET` of at
+  least 32 characters. Production startup rejects missing/weak JWT secrets.
+- Use a dedicated least-privilege PostgreSQL role; do not use the development
+  `postgres` password outside local development.
+- Run `npm run db:migrate`, then take and regularly test PostgreSQL backups.
+  Restore into a separate database before relying on a backup procedure.
+- Serve the API and frontend over HTTPS. The API sends strict browser security
+  headers in production; configure the reverse proxy with TLS.

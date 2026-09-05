@@ -34,6 +34,11 @@ async function assertReferences(db, journalId, lines) {
     }
   }
 }
+async function assertOpenFiscalPeriod(db, entryDate) {
+  const periods = await db.query('SELECT status FROM fiscal_periods WHERE $1 BETWEEN start_date AND end_date ORDER BY start_date DESC LIMIT 1', [entryDate]);
+  const configured = await db.query('SELECT 1 FROM fiscal_periods LIMIT 1');
+  if (configured.rowCount && (!periods.rowCount || periods.rows[0].status !== 'OPEN')) throw Object.assign(new Error('Financial postings are allowed only in an open fiscal period.'), { status: 400 });
+}
 
 async function getEntry(db, id) {
   const header = await db.query(`SELECT ${entrySelect} FROM journal_entries e JOIN journals j ON j.id=e.journal_id
@@ -81,7 +86,7 @@ async function updateDraftEntry(db, id, userId, body) {
   });
 }
 
-async function postEntry(db, id, userId) { return withTransaction(db, async (tx) => { const entry=await getEntry(tx,id); if(!entry) throw Object.assign(new Error('Journal Entry not found.'),{status:404}); if(entry.status!=='DRAFT') throw Object.assign(new Error('Only Draft Journal Entries can be posted.'),{status:400}); const errors=validateLines(entry.lines); if(errors.length || !isBalanced(entry.lines)) throw Object.assign(new Error('Journal Entry cannot be posted because total debits and credits do not match.'),{status:400}); await assertReferences(tx,entry.journalId,entry.lines); await tx.query("UPDATE journal_entries SET status='POSTED', posted_by_id=$1, posted_at=NOW(), updated_at=NOW() WHERE id=$2",[userId,id]); await logAudit(tx,{userId,action:'JOURNAL_ENTRY_POSTED',entity:'JournalEntry',entityId:id,metadata:{entryNumber:entry.entryNumber}}); return getEntry(tx,id); }); }
+async function postEntry(db, id, userId) { return withTransaction(db, async (tx) => { const entry=await getEntry(tx,id); if(!entry) throw Object.assign(new Error('Journal Entry not found.'),{status:404}); if(entry.status!=='DRAFT') throw Object.assign(new Error('Only Draft Journal Entries can be posted.'),{status:400}); const errors=validateLines(entry.lines); if(errors.length || !isBalanced(entry.lines)) throw Object.assign(new Error('Journal Entry cannot be posted because total debits and credits do not match.'),{status:400}); await assertReferences(tx,entry.journalId,entry.lines); await assertOpenFiscalPeriod(tx,entry.entryDate); await tx.query("UPDATE journal_entries SET status='POSTED', posted_by_id=$1, posted_at=NOW(), updated_at=NOW() WHERE id=$2",[userId,id]); await logAudit(tx,{userId,action:'JOURNAL_ENTRY_POSTED',entity:'JournalEntry',entityId:id,metadata:{entryNumber:entry.entryNumber}}); return getEntry(tx,id); }); }
 async function cancelDraft(db,id,userId) { return withTransaction(db,async(tx)=>{const result=await tx.query("UPDATE journal_entries SET status='CANCELLED',cancelled_by_id=$1,cancelled_at=NOW(),updated_at=NOW() WHERE id=$2 AND status='DRAFT' RETURNING id",[userId,id]);if(!result.rowCount) throw Object.assign(new Error('Only Draft Journal Entries can be cancelled.'),{status:400});await logAudit(tx,{userId,action:'JOURNAL_ENTRY_CANCELLED',entity:'JournalEntry',entityId:id});return getEntry(tx,id);}); }
 
 module.exports={createDraftEntry,updateDraftEntry,postEntry,cancelDraft,getEntry,serializeEntry,entrySelect,lineSelect};

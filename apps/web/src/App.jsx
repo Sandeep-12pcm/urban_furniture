@@ -32,6 +32,11 @@ import { SalesOrderDetailPage } from './pages/sales/SalesOrderDetailPage.jsx';
 import { CustomerInvoicesPage } from './pages/sales/CustomerInvoicesPage.jsx';
 import { CustomerInvoiceDetailPage } from './pages/sales/CustomerInvoiceDetailPage.jsx';
 import { PaymentsPage } from './pages/payments/PaymentsPage.jsx';
+import { InventoryPage } from './pages/inventory/InventoryPage.jsx';
+import { InventoryMovementsPage } from './pages/inventory/InventoryMovementsPage.jsx';
+import { InventoryProductDetailPage } from './pages/inventory/InventoryProductDetailPage.jsx';
+import { ReportsDashboardPage, TrialBalancePage, GeneralLedgerPage, ProfitLossPage, BalanceSheetPage, BudgetReportPage } from './pages/reports/ReportsPage.jsx';
+import { AdministrationPage } from './pages/admin/AdministrationPage.jsx';
 
 function ProtectedRoute({ roles, user }) {
   if (!user) return <Navigate to="/login" replace />;
@@ -117,6 +122,7 @@ function AuthenticatedApp({ user, setUser }) {
             <Route element={<AppLayout />}>
               <Route element={<ProtectedRoute user={user} roles={['ADMIN']} />}>
                 <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/administration" element={<AdministrationPage />} />
               </Route>
               <Route element={<ProtectedRoute user={user} roles={['ACCOUNTANT']} />}>
                 <Route path="/accountant/dashboard" element={<Dashboard />} />
@@ -148,6 +154,15 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/sales/invoices" element={<CustomerInvoicesPage />} />
                 <Route path="/sales/invoices/:id" element={<CustomerInvoiceDetailPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />
+                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+                <Route path="/inventory/products/:id" element={<InventoryProductDetailPage />} />
+                <Route path="/reports" element={<ReportsDashboardPage />} />
+                <Route path="/reports/trial-balance" element={<TrialBalancePage />} />
+                <Route path="/reports/general-ledger" element={<GeneralLedgerPage />} />
+                <Route path="/reports/profit-loss" element={<ProfitLossPage />} />
+                <Route path="/reports/balance-sheet" element={<BalanceSheetPage />} />
+                <Route path="/reports/budget" element={<BudgetReportPage />} />
               </Route>
             </Route>
           </Route>

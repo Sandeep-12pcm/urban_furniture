@@ -93,6 +93,40 @@ export const paymentsApi = {
   cancel: (id) => apiRequest(`/payments/${id}/cancel`, { method: 'POST' }),
 };
 
+export const inventoryApi = {
+  list: (params = {}) => apiRequest(`/inventory${toQueryString(params)}`),
+  detail: (id) => apiRequest(`/inventory/${id}`),
+  movements: (params = {}) => apiRequest(`/inventory/movements${toQueryString(params)}`),
+  productMovements: (id, params = {}) => apiRequest(`/inventory/${id}/movements${toQueryString(params)}`),
+  adjust: (body) => apiRequest('/inventory/adjustments', { method: 'POST', body }),
+};
+
+export const reportsApi = {
+  dashboard: (params = {}) => apiRequest(`/reports/dashboard${toQueryString(params)}`),
+  trialBalance: (params = {}) => apiRequest(`/reports/trial-balance${toQueryString(params)}`),
+  generalLedger: (params = {}) => apiRequest(`/reports/general-ledger${toQueryString(params)}`),
+  profitLoss: (params = {}) => apiRequest(`/reports/profit-loss${toQueryString(params)}`),
+  balanceSheet: (params = {}) => apiRequest(`/reports/balance-sheet${toQueryString(params)}`),
+  budget: (params = {}) => apiRequest(`/reports/budget${toQueryString(params)}`),
+};
+
+export const adminApi = {
+  users: (params={}) => apiRequest(`/admin/users${toQueryString(params)}`),
+  updateUser: (id, body) => apiRequest(`/admin/users/${id}`, { method: 'PATCH', body }),
+  auditLogs: (params={}) => apiRequest(`/admin/audit-logs${toQueryString(params)}`),
+  fiscalPeriods: () => apiRequest('/admin/fiscal-periods'),
+  createFiscalPeriod: (body) => apiRequest('/admin/fiscal-periods', { method: 'POST', body }),
+  closePeriod: (id) => apiRequest(`/admin/fiscal-periods/${id}/close`, { method: 'POST' }),
+  settings: () => apiRequest('/admin/settings'),
+  setSetting: (key, value) => apiRequest(`/admin/settings/${key}`, { method: 'PUT', body: { value } }),
+  health: () => apiRequest('/admin/system-health'),
+  search: (q) => apiRequest(`/search${toQueryString({ q })}`),
+  notifications: () => apiRequest('/notifications'),
+  taxes: () => apiRequest('/admin/taxes'),
+  createTax: (body) => apiRequest('/admin/taxes', { method: 'POST', body }),
+  archiveTax: (id) => apiRequest(`/admin/taxes/${id}/archive`, { method: 'POST' }),
+};
+
 export function fetchAssignableUsers() {
   return apiRequest('/users/assignable');
 }

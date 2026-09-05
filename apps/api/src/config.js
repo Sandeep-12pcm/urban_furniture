@@ -6,9 +6,15 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 function normalizeDatabaseUrl(value) {
   const fallback = 'postgresql://postgres:postgres@localhost:5432/urban_furniture?schema=public';
+  if (process.env.NODE_ENV === 'production' && !value) throw new Error('DATABASE_URL is required in production.');
   const url = new URL(value || fallback);
   url.searchParams.delete('schema');
   return url.toString();
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)) {
+  throw new Error('JWT_SECRET must be at least 32 characters in production.');
 }
 
 const config = {
@@ -22,7 +28,7 @@ const config = {
   admin: {
     loginId: process.env.ADMIN_LOGIN_ID || 'admin',
     email: process.env.ADMIN_EMAIL || 'admin@urbanfurniture.local',
-    password: process.env.ADMIN_PASSWORD || 'ChangeMe@12345',
+    password: process.env.ADMIN_PASSWORD || (isProduction ? undefined : 'ChangeMe@12345'),
   },
 };
 

@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction } = require('../db/transaction');
 const { logAudit } = require('../db/audit');
 const accounting = require('./accountingService');
+const inventory = require('./inventoryService');
 
 const TAX_RATES = Object.freeze([0, 5, 12, 18, 28]);
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -310,6 +311,7 @@ async function postInvoice(db, id, userId) {
       [userId, entry.id, id],
     );
     if (!r.rowCount) throw fail('Customer Invoice could not be posted.');
+    await inventory.fulfillCustomerInvoice(tx, invoice, userId);
     await logAudit(tx, { userId, action: 'CUSTOMER_INVOICE_POSTED', entity: 'CustomerInvoice', entityId: id, metadata: { accountingEntryId: entry.id } });
     return getInvoice(tx, id);
   });

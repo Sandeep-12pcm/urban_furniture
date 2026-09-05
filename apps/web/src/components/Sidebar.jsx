@@ -42,6 +42,18 @@ const salesLinks = [
   { to: '/sales/invoices', label: 'Customer Invoices', icon: ReceiptText },
   { to: '/payments', label: 'Payments', icon: Wallet },
 ];
+const inventoryLinks = [
+  { to: '/inventory', label: 'Inventory', icon: Boxes },
+  { to: '/inventory/movements', label: 'Stock Movements', icon: Package },
+];
+const reportLinks = [
+  { to: '/reports', label: 'Report Dashboard', icon: BarChart3 },
+  { to: '/reports/profit-loss', label: 'Profit & Loss', icon: BarChart3 },
+  { to: '/reports/balance-sheet', label: 'Balance Sheet', icon: LandmarkIcon },
+  { to: '/reports/trial-balance', label: 'Trial Balance', icon: BookOpen },
+  { to: '/reports/general-ledger', label: 'General Ledger', icon: NotebookText },
+  { to: '/reports/budget', label: 'Budget Report', icon: Wallet },
+];
 
 function NavItem({ to, label, icon: Icon }) {
   return (
@@ -115,6 +127,15 @@ export function Sidebar({ user, open, onClose }) {
           )}
           {showMasterData && (
             <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Sales</p><div className="space-y-1">{salesLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Inventory</p><div className="space-y-1">{inventoryLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {showMasterData && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Reports</p><div className="space-y-1">{reportLinks.map((link) => <NavItem key={link.to} {...link} />)}</div></div>
+          )}
+          {user.role === 'ADMIN' && (
+            <div><p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Administration</p><div className="space-y-1"><NavItem to="/admin/administration" label="System Administration" icon={LandmarkIcon} /></div></div>
           )}
 
           <div>
