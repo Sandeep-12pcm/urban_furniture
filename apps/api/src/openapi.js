@@ -118,6 +118,12 @@ const openApiDocument = {
     '/accounts/{id}/balance': { get: { summary: 'Get posted-account totals and balance', security: [{ cookieAuth: [] }] } },
     '/accounts/{id}/ledger': { get: { summary: 'Get posted-account ledger with running balance', security: [{ cookieAuth: [] }] } },
     '/accounts/balances': { get: { summary: 'List account balance summary', security: [{ cookieAuth: [] }] } },
+    '/sales/orders': { get: { summary: 'List Sales Orders (ADMIN or ACCOUNTANT)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Sales Orders' }, 401: { description: 'Authentication required' }, 403: { description: 'Sales role required' } } }, post: { summary: 'Create a draft Sales Order', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, quantity, price, or tax' } } } },
+    '/sales/orders/{id}/confirm': { post: { summary: 'Confirm a draft Sales Order without accounting impact', security: [{ cookieAuth: [] }], parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }], responses: { 200: { description: 'Confirmed' }, 400: { description: 'Not a draft order' } } } },
+    '/sales/orders/{id}/cancel': { post: { summary: 'Cancel a draft Sales Order', security: [{ cookieAuth: [] }] } },
+    '/sales/invoices': { get: { summary: 'List Customer Invoices (ADMIN or ACCOUNTANT)', security: [{ cookieAuth: [] }] }, post: { summary: 'Create a draft Customer Invoice', security: [{ cookieAuth: [] }], responses: { 201: { description: 'Draft created' }, 400: { description: 'Invalid customer, product, dates, quantity, price, or tax' } } } },
+    '/sales/invoices/{id}/post': { post: { summary: 'Post a draft Customer Invoice and create its balanced Sales Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Invoice posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
+    '/sales/invoices/{id}/cancel': { post: { summary: 'Cancel a draft Customer Invoice', security: [{ cookieAuth: [] }] } },
   },
 };
 

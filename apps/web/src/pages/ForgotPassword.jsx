@@ -37,7 +37,7 @@ export function ForgotPassword({ navigate }) {
             <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </div>
         </label>
-        {message && <div className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success">{message}</div>}
+        {message && <div className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm rounded-md text-success">{message}</div>}
         {error && <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
         <Button className="w-full" type="submit" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
