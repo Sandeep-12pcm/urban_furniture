@@ -34,6 +34,7 @@ function createApp() {
   const journalRoutes = require('./routes/journal.routes');
   const analyticRoutes = require('./routes/analytic.routes');
   const budgetRoutes = require('./routes/budget.routes');
+  const { transactionRouter } = require('./routes/transaction.routes');
   app.use('/api/auth', authRoutes);
   app.use('/api/contacts', contactRoutes);
   app.use('/api/products', productRoutes);
@@ -41,6 +42,7 @@ function createApp() {
   app.use('/api/journals', journalRoutes);
   app.use('/api/analytic-accounts', analyticRoutes);
   app.use('/api/budgets', budgetRoutes);
+  app.use('/api', transactionRouter);
 
   // Health check
   app.get('/api/health', (_req, res) => {

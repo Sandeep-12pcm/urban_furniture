@@ -14,6 +14,7 @@ const accountRoutes = require(path.join(serverSrc, 'routes/account.routes'));
 const journalRoutes = require(path.join(serverSrc, 'routes/journal.routes'));
 const analyticRoutes = require(path.join(serverSrc, 'routes/analytic.routes'));
 const budgetRoutes = require(path.join(serverSrc, 'routes/budget.routes'));
+const { transactionRouter } = require(path.join(serverSrc, 'routes/transaction.routes'));
 const { errorResponse } = require(path.join(serverSrc, 'utils/response'));
 
 function createApp() {
@@ -58,6 +59,7 @@ function createApp() {
   app.use('/api/journals', journalRoutes);
   app.use('/api/analytic-accounts', analyticRoutes);
   app.use('/api/budgets', budgetRoutes);
+  app.use('/api', transactionRouter);
 
   app.use((req, res) => {
     return errorResponse(res, `Route not found: ${req.method} ${req.path}`, ['Endpoint does not exist.'], 404);
