@@ -53,7 +53,7 @@ export function AnalyticAccountsPage() {
     type: typeFilter === 'ALL' ? undefined : typeFilter,
     status: statusFilter,
     page,
-    limit: 300,
+    limit: 30,
   };
   const { data: analyticAccounts, pagination, loading, error, reload } = useResourceList(analyticAccountsApi, params, 'analyticAccounts');
 

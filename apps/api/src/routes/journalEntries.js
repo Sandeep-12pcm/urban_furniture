@@ -7,14 +7,109 @@ const { sendServiceError } = require('../lib/serviceError');
 const accountingAccess = (db) => [authenticate(db), authorize('ADMIN', 'ACCOUNTANT')];
 function queryText(params) { const query=new URLSearchParams(); Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')query.set(k,v);}); return query.toString(); }
 function journalEntriesRoutes(db) {
- const router=express.Router(); const access=accountingAccess(db);
- router.get('/journal-entries',...access,async(req,res,next)=>{try{const {page,limit,offset}=parsePagination(req.query);const conditions=[];const params=[];const add=(column,value)=>{params.push(value);conditions.push(`${column}=$${params.length}`);};if(req.query.status)add('e.status',String(req.query.status).toUpperCase());if(req.query.journalId)add('e.journal_id',req.query.journalId);if(req.query.startDate){params.push(req.query.startDate);conditions.push(`e.entry_date >= $${params.length}`);}if(req.query.endDate){params.push(req.query.endDate);conditions.push(`e.entry_date <= $${params.length}`);}if(req.query.search){const value=`%${String(req.query.search).toLowerCase()}%`;params.push(value,value);conditions.push(`(lower(e.entry_number) LIKE $${params.length-1} OR lower(coalesce(e.reference,'')) LIKE $${params.length})`);}const where=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';const count=await db.query(`SELECT COUNT(*)::int AS total FROM journal_entries e ${where}`,params);const rows=await db.query(`SELECT ${entrySelect}, COALESCE(SUM(l.debit),0)::text AS "totalDebit", COALESCE(SUM(l.credit),0)::text AS "totalCredit" FROM journal_entries e JOIN journals j ON j.id=e.journal_id JOIN users creator ON creator.id=e.created_by_id LEFT JOIN users poster ON poster.id=e.posted_by_id LEFT JOIN users canceller ON canceller.id=e.cancelled_by_id LEFT JOIN journal_entry_lines l ON l.journal_entry_id=e.id ${where} GROUP BY e.id,j.id,creator.login_id,poster.login_id,canceller.login_id ORDER BY e.entry_date DESC,e.entry_number DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,offset]);return res.json({journalEntries:rows.rows.map(row=>({...row,balanced:row.totalDebit===row.totalCredit})),pagination:buildPaginationMeta({page,limit,total:count.rows[0].total})});}catch(e){next(e);}});
- router.get('/journal-entries/:id',...access,async(req,res,next)=>{try{const entry=await getEntry(db,req.params.id);if(!entry)return res.status(404).json({message:'Journal Entry not found.'});res.json({journalEntry:entry});}catch(e){next(e);}});
- router.post('/journal-entries',...access,async(req,res)=>{try{const entry=await createDraftEntry(db,req.user.id,req.body);res.status(201).json({journalEntry:entry});}catch(e){sendServiceError(res,e);}});
- router.patch('/journal-entries/:id',...access,async(req,res)=>{try{res.json({journalEntry:await updateDraftEntry(db,req.params.id,req.user.id,req.body)});}catch(e){sendServiceError(res,e);}});
- router.post('/journal-entries/:id/post',...access,async(req,res)=>{try{res.json({journalEntry:await postEntry(db,req.params.id,req.user.id)});}catch(e){sendServiceError(res,e);}});
- router.post('/journal-entries/:id/cancel',...access,async(req,res)=>{try{res.json({journalEntry:await cancelDraft(db,req.params.id,req.user.id)});}catch(e){sendServiceError(res,e);}});
- return router;
+  const router = express.Router();
+  const access = accountingAccess(db);
+
+  router.get('/journal-entries', ...access, async (req, res, next) => {
+    try {
+      const { page, limit, offset } = parsePagination(req.query);
+      const conditions = [];
+      const params = [];
+      const add = (column, value) => {
+        params.push(value);
+        conditions.push(`${column}=$${params.length}`);
+      };
+
+      if (req.query.status && req.query.status.toUpperCase() !== 'ALL') {
+        add('e.status', String(req.query.status).toUpperCase());
+      }
+      if (req.query.journalId && req.query.journalId !== 'ALL') {
+        add('e.journal_id', req.query.journalId);
+      }
+      if (req.query.startDate) {
+        params.push(req.query.startDate);
+        conditions.push(`e.entry_date >= $${params.length}`);
+      }
+      if (req.query.endDate) {
+        params.push(req.query.endDate);
+        conditions.push(`e.entry_date <= $${params.length}`);
+      }
+      if (req.query.search) {
+        const value = `%${String(req.query.search).toLowerCase()}%`;
+        params.push(value, value, value);
+        conditions.push(`(lower(e.entry_number) LIKE $${params.length - 2} OR lower(coalesce(e.reference, '')) LIKE $${params.length - 1} OR lower(coalesce(e.description, '')) LIKE $${params.length})`);
+      }
+
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const count = await db.query(`SELECT COUNT(*)::int AS total FROM journal_entries e ${where}`, params);
+      const rows = await db.query(
+        `SELECT ${entrySelect}, COALESCE(SUM(l.debit),0)::text AS "totalDebit", COALESCE(SUM(l.credit),0)::text AS "totalCredit"
+         FROM journal_entries e
+         JOIN journals j ON j.id=e.journal_id
+         JOIN users creator ON creator.id=e.created_by_id
+         LEFT JOIN users poster ON poster.id=e.posted_by_id
+         LEFT JOIN users canceller ON canceller.id=e.cancelled_by_id
+         LEFT JOIN journal_entry_lines l ON l.journal_entry_id=e.id
+         ${where}
+         GROUP BY e.id, j.id, creator.login_id, poster.login_id, canceller.login_id
+         ORDER BY e.entry_date DESC, e.entry_number DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset]
+      );
+
+      return res.json({
+        journalEntries: rows.rows.map((row) => ({ ...row, balanced: row.totalDebit === row.totalCredit })),
+        pagination: buildPaginationMeta({ page, limit, total: count.rows[0].total }),
+      });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.get('/journal-entries/:id', ...access, async (req, res, next) => {
+    try {
+      const entry = await getEntry(db, req.params.id);
+      if (!entry) return res.status(404).json({ message: 'Journal Entry not found.' });
+      res.json({ journalEntry: entry });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  router.post('/journal-entries', ...access, async (req, res) => {
+    try {
+      const entry = await createDraftEntry(db, req.user.id, req.body);
+      res.status(201).json({ journalEntry: entry });
+    } catch (e) {
+      sendServiceError(res, e);
+    }
+  });
+
+  router.patch('/journal-entries/:id', ...access, async (req, res) => {
+    try {
+      res.json({ journalEntry: await updateDraftEntry(db, req.params.id, req.user.id, req.body) });
+    } catch (e) {
+      sendServiceError(res, e);
+    }
+  });
+
+  router.post('/journal-entries/:id/post', ...access, async (req, res) => {
+    try {
+      res.json({ journalEntry: await postEntry(db, req.params.id, req.user.id) });
+    } catch (e) {
+      sendServiceError(res, e);
+    }
+  });
+
+  router.post('/journal-entries/:id/cancel', ...access, async (req, res) => {
+    try {
+      res.json({ journalEntry: await cancelDraft(db, req.params.id, req.user.id) });
+    } catch (e) {
+      sendServiceError(res, e);
+    }
+  });
+
+  return router;
 }
 function accountingReportsRoutes(db) { const router=express.Router();const access=accountingAccess(db);
  router.get('/accounts/:id/balance',...access,async(req,res,next)=>{try{const account=await db.query('SELECT id,account_name AS "accountName",type AS "accountType" FROM accounts WHERE id=$1',[req.params.id]);if(!account.rowCount)return res.status(404).json({message:'Account not found.'});const sums=await db.query(`SELECT COALESCE(SUM(l.debit),0)::text AS debit,COALESCE(SUM(l.credit),0)::text AS credit FROM journal_entry_lines l JOIN journal_entries e ON e.id=l.journal_entry_id WHERE l.account_id=$1 AND e.status='POSTED'`,[req.params.id]);const s=sums.rows[0];res.json({accountId:account.rows[0].id,accountName:account.rows[0].accountName,accountType:account.rows[0].accountType,totalDebit:s.debit,totalCredit:s.credit,balance:(Number(s.debit)-Number(s.credit)).toFixed(2)});}catch(e){next(e);}});

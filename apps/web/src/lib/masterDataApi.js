@@ -25,7 +25,10 @@ function createResourceClient(path, listKey) {
   };
 }
 
-export const contactsApi = createResourceClient('/contacts', 'contacts');
+export const contactsApi = {
+  ...createResourceClient('/contacts', 'contacts'),
+  transactions: (id) => apiRequest(`/contacts/${id}/transactions`),
+};
 export const productCategoriesApi = createResourceClient('/product-categories', 'categories');
 export const productsApi = createResourceClient('/products', 'products');
 export const accountsApi = createResourceClient('/accounts', 'accounts');

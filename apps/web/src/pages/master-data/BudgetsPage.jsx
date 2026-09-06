@@ -55,7 +55,7 @@ export function BudgetsPage() {
     analyticAccountId: analyticFilter === 'ALL' ? undefined : analyticFilter,
     status: statusFilter,
     page,
-    limit: 300,
+    limit: 30,
   };
   const { data: budgets, pagination, loading, error, reload } = useResourceList(budgetsApi, params, 'budgets');
 

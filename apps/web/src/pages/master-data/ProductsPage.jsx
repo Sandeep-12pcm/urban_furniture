@@ -63,7 +63,7 @@ export function ProductsPage() {
     categoryId: categoryFilter === 'ALL' ? undefined : categoryFilter,
     status: statusFilter,
     page,
-    limit: 10,
+    limit: 30,
   };
 
   const { data: products, pagination, loading, error, reload } = useResourceList(productsApi, params, 'products');

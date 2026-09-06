@@ -60,7 +60,7 @@ export function JournalsPage() {
     type: typeFilter === 'ALL' ? undefined : typeFilter,
     status: statusFilter,
     page,
-    limit: 10,
+    limit: 30,
   };
   const { data: journals, pagination, loading, error, reload } = useResourceList(journalsApi, params, 'journals');
 

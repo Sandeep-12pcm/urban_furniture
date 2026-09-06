@@ -1,4 +1,4 @@
-import { Archive, Eye, Loader2, Pencil, Plus, RotateCcw, Save, Users } from 'lucide-react';
+import { Archive, Eye, Globe, Loader2, Pencil, Plus, RotateCcw, Save, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/Button.jsx';
@@ -30,7 +30,13 @@ const TYPE_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Active' },
   { value: 'ARCHIVED', label: 'Archived' },
-  { value: 'ALL', label: 'All' },
+  { value: 'ALL', label: 'All Statuses' },
+];
+
+const PORTAL_OPTIONS = [
+  { value: '', label: 'All Portals' },
+  { value: 'true', label: 'Portal Enabled' },
+  { value: 'false', label: 'No Portal' },
 ];
 
 export function ContactsPage() {
@@ -41,6 +47,7 @@ export function ContactsPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
+  const [portalFilter, setPortalFilter] = useState('');
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
@@ -53,8 +60,9 @@ export function ContactsPage() {
     search: debouncedSearch || undefined,
     type: typeFilter === 'ALL' ? undefined : typeFilter,
     status: statusFilter,
+    hasPortal: portalFilter || undefined,
     page,
-    limit: 30,
+    limit: 25,
   };
 
   const { data: contacts, pagination, loading, error, reload } = useResourceList(contactsApi, params, 'contacts');
@@ -102,13 +110,14 @@ export function ContactsPage() {
       <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
         <Toolbar>
           <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search contacts…" />
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <FilterSelect label="Filter by type" value={typeFilter} onChange={(value) => { setTypeFilter(value); setPage(1); }} options={TYPE_OPTIONS} />
+            <FilterSelect label="Filter by portal" value={portalFilter} onChange={(value) => { setPortalFilter(value); setPage(1); }} options={PORTAL_OPTIONS} />
             <FilterSelect label="Filter by status" value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(1); }} options={STATUS_OPTIONS} />
           </div>
         </Toolbar>
 
-        {loading && <LoadingTable columns={6} />}
+        {loading && <LoadingTable columns={7} />}
         {!loading && error && <ErrorState message={error} onRetry={reload} />}
         {!loading && !error && contacts.length === 0 && (
           <EmptyState
@@ -125,11 +134,12 @@ export function ContactsPage() {
         )}
 
         {!loading && !error && contacts.length > 0 && (
-          <Table minWidth="820px">
+          <Table minWidth="920px">
             <thead>
               <tr>
                 <Th>Name</Th>
                 <Th>Type</Th>
+                <Th>Portal User</Th>
                 <Th>Email</Th>
                 <Th>Mobile</Th>
                 <Th>Status</Th>
@@ -139,8 +149,23 @@ export function ContactsPage() {
             <tbody>
               {contacts.map((contact) => (
                 <Tr key={contact.id}>
-                  <Td first className="font-semibold">{contact.name}</Td>
+                  <Td first className="font-semibold">
+                    <div className="text-navy">{contact.name}</div>
+                    {contact.createdByName && (
+                      <div className="text-xs font-normal text-muted">Created by: {contact.createdByName}</div>
+                    )}
+                  </Td>
                   <Td><TypeBadge type={contact.type} /></Td>
+                  <Td>
+                    {contact.portalLoginId ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo/10 px-2.5 py-1 text-xs font-bold text-indigo">
+                        <Globe className="h-3 w-3" />
+                        {contact.portalLoginId}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted/60">—</span>
+                    )}
+                  </Td>
                   <Td className="text-muted">{contact.email || '—'}</Td>
                   <Td className="text-muted">{contact.mobile || '—'}</Td>
                   <Td><StatusBadge status={contact.status} /></Td>

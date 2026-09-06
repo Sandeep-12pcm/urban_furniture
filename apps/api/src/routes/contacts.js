@@ -9,7 +9,7 @@ const { mapConstraintError } = require('../lib/masterDataErrors');
 const { validateContact, validateCreatePortalAccount } = require('../masterDataValidation');
 const { mapUniqueError } = require('./auth');
 
-const contactSelect = `
+const contactFields = `
   id,
   name,
   type,
@@ -27,7 +27,30 @@ const contactSelect = `
   updated_by AS "updatedBy"
 `;
 
-const SORT_COLUMNS = { name: 'name', createdAt: 'created_at' };
+const contactSelect = `
+  c.id,
+  c.name,
+  c.type,
+  c.email,
+  c.mobile,
+  c.city,
+  c.state,
+  c.pincode,
+  c.profile_image_url AS "profileImageUrl",
+  c.status,
+  c.created_at AS "createdAt",
+  c.updated_at AS "updatedAt",
+  c.archived_at AS "archivedAt",
+  c.created_by AS "createdBy",
+  c.updated_by AS "updatedBy",
+  creator.login_id AS "createdByName",
+  u.id AS "portalUserId",
+  u.login_id AS "portalLoginId",
+  u.role AS "portalRole",
+  u.account_type AS "portalAccountType"
+`;
+
+const SORT_COLUMNS = { name: 'c.name', createdAt: 'c.created_at' };
 
 function contactsRoutes(db) {
   const router = express.Router();
@@ -43,29 +66,45 @@ function contactsRoutes(db) {
       const status = String(req.query.status || 'ACTIVE').toUpperCase();
       if (status !== 'ALL') {
         params.push(status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE');
-        conditions.push(`status = $${params.length}`);
+        conditions.push(`c.status = $${params.length}`);
       }
 
       if (['CUSTOMER', 'VENDOR', 'BOTH'].includes(req.query.type)) {
         params.push(req.query.type);
-        conditions.push(`type = $${params.length}`);
+        conditions.push(`c.type = $${params.length}`);
+      }
+
+      if (req.query.hasPortal === 'true') {
+        conditions.push('u.id IS NOT NULL');
+      } else if (req.query.hasPortal === 'false') {
+        conditions.push('u.id IS NULL');
       }
 
       if (req.query.search) {
         params.push(`%${String(req.query.search).trim().toLowerCase()}%`);
         const idx = params.length;
-        conditions.push(`(lower(name) LIKE $${idx} OR lower(email) LIKE $${idx} OR mobile LIKE $${idx})`);
+        conditions.push(`(lower(c.name) LIKE $${idx} OR lower(coalesce(c.email, '')) LIKE $${idx} OR coalesce(c.mobile, '') LIKE $${idx} OR lower(coalesce(u.login_id, '')) LIKE $${idx})`);
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-      const sortColumn = SORT_COLUMNS[req.query.sortBy] || 'created_at';
+      const sortColumn = SORT_COLUMNS[req.query.sortBy] || 'c.created_at';
       const sortDir = req.query.sortDir === 'asc' ? 'ASC' : 'DESC';
 
-      const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM contacts ${where}`, params);
+      const countResult = await db.query(
+        `SELECT COUNT(*)::int AS total
+         FROM contacts c
+         LEFT JOIN users u ON u.contact_id = c.id
+         ${where}`,
+        params
+      );
       const total = countResult.rows[0].total;
 
       const result = await db.query(
-        `SELECT ${contactSelect} FROM contacts ${where}
+        `SELECT ${contactSelect}
+         FROM contacts c
+         LEFT JOIN users creator ON creator.id = c.created_by
+         LEFT JOIN users u ON u.contact_id = c.id
+         ${where}
          ORDER BY ${sortColumn} ${sortDir}
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
         [...params, limit, offset],
@@ -79,9 +118,59 @@ function contactsRoutes(db) {
 
   router.get('/contacts/:id', ...canManage, async (req, res, next) => {
     try {
-      const result = await db.query(`SELECT ${contactSelect} FROM contacts WHERE id = $1`, [req.params.id]);
+      const result = await db.query(
+        `SELECT ${contactSelect}
+         FROM contacts c
+         LEFT JOIN users creator ON creator.id = c.created_by
+         LEFT JOIN users u ON u.contact_id = c.id
+         WHERE c.id = $1`,
+        [req.params.id]
+      );
       if (!result.rowCount) return res.status(404).json({ message: 'Contact not found.' });
       return res.json({ contact: result.rows[0] });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get('/contacts/:id/transactions', ...canManage, async (req, res, next) => {
+    try {
+      const contactId = req.params.id;
+      const [pos, vbs, sos, cis, pays] = await Promise.all([
+        db.query(
+          `SELECT id, order_number AS "number", order_date AS "date", total_amount AS "total", status, 'PO' AS kind
+           FROM purchase_orders WHERE vendor_id = $1 ORDER BY order_date DESC, created_at DESC LIMIT 15`,
+          [contactId]
+        ),
+        db.query(
+          `SELECT id, bill_number AS "number", invoice_date AS "date", total_amount AS "total", status, payment_status AS "paymentStatus", 'BILL' AS kind
+           FROM vendor_bills WHERE vendor_id = $1 ORDER BY invoice_date DESC, created_at DESC LIMIT 15`,
+          [contactId]
+        ),
+        db.query(
+          `SELECT id, order_number AS "number", order_date AS "date", total_amount AS "total", status, 'SO' AS kind
+           FROM sales_orders WHERE customer_id = $1 ORDER BY order_date DESC, created_at DESC LIMIT 15`,
+          [contactId]
+        ),
+        db.query(
+          `SELECT id, invoice_number AS "number", invoice_date AS "date", total_amount AS "total", status, payment_status AS "paymentStatus", 'INV' AS kind
+           FROM customer_invoices WHERE customer_id = $1 ORDER BY invoice_date DESC, created_at DESC LIMIT 15`,
+          [contactId]
+        ),
+        db.query(
+          `SELECT id, payment_number AS "number", payment_date AS "date", amount AS "total", status, type, method
+           FROM payments WHERE contact_id = $1 ORDER BY payment_date DESC, created_at DESC LIMIT 15`,
+          [contactId]
+        ),
+      ]);
+      return res.json({
+        purchaseOrders: pos.rows,
+        vendorBills: vbs.rows,
+        salesOrders: sos.rows,
+        customerInvoices: cis.rows,
+        payments: pays.rows,
+        totalTransactions: pos.rowCount + vbs.rowCount + sos.rowCount + cis.rowCount + pays.rowCount,
+      });
     } catch (error) {
       return next(error);
     }
@@ -100,7 +189,7 @@ function contactsRoutes(db) {
         const inserted = await tx.query(
           `INSERT INTO contacts (id, name, type, email, mobile, city, state, pincode, profile_image_url, created_by, updated_by)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
-           RETURNING ${contactSelect}`,
+           RETURNING ${contactFields}`,
           [
             id,
             req.body.name.trim(),
@@ -201,7 +290,7 @@ function contactsRoutes(db) {
       params.push(req.params.id);
 
       const result = await db.query(
-        `UPDATE contacts SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING ${contactSelect}`,
+        `UPDATE contacts SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING ${contactFields}`,
         params,
       );
 
@@ -225,7 +314,7 @@ function contactsRoutes(db) {
     try {
       const result = await db.query(
         `UPDATE contacts SET status = 'ARCHIVED', archived_at = NOW(), updated_by = $2, updated_at = NOW()
-         WHERE id = $1 AND status = 'ACTIVE' RETURNING ${contactSelect}`,
+         WHERE id = $1 AND status = 'ACTIVE' RETURNING ${contactFields}`,
         [req.params.id, req.user.id],
       );
       if (!result.rowCount) {
@@ -244,7 +333,7 @@ function contactsRoutes(db) {
     try {
       const result = await db.query(
         `UPDATE contacts SET status = 'ACTIVE', archived_at = NULL, updated_by = $2, updated_at = NOW()
-         WHERE id = $1 AND status = 'ARCHIVED' RETURNING ${contactSelect}`,
+         WHERE id = $1 AND status = 'ARCHIVED' RETURNING ${contactFields}`,
         [req.params.id, req.user.id],
       );
       if (!result.rowCount) {
