@@ -197,6 +197,73 @@ const openApiDocument = {
     '/admin/system-health': { get: { summary: 'Safe administrative diagnostics without secret exposure', security: [{ cookieAuth: [] }] } },
     '/search': { get: { summary: 'Internal database-backed global search', security: [{ cookieAuth: [] }] } },
     '/notifications': { get: { summary: 'Internal low-stock and overdue-invoice alerts from live data', security: [{ cookieAuth: [] }] } },
+
+    // AI Assistant (Phase 11) — read-only accounting/business Q&A over a
+    // fixed set of controlled tools that call existing, already-authorized
+    // reporting/analytics services. ADMIN and ACCOUNTANT only; CONTACT is
+    // rejected by the same authenticate()/authorize() middleware used
+    // everywhere else, never by the AI model itself. No write actions.
+    '/ai/chat': {
+      post: {
+        summary: 'Ask the AI assistant a business/accounting question or continue a conversation (ADMIN/ACCOUNTANT)',
+        security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['message'],
+                properties: {
+                  message: { type: 'string', maxLength: 1000, description: 'The user question. Max 1000 characters.' },
+                  conversationId: { type: 'string', format: 'uuid', description: 'Omit to start a new conversation.' },
+                  context: {
+                    type: 'object',
+                    description: 'Optional page context. The current record id is always re-authorized server-side before use.',
+                    properties: {
+                      currentPage: { type: 'string' },
+                      selectedRecordId: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'AI answer, grounded only in data returned by controlled application tools',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    answer: { type: 'string' },
+                    conversationId: { type: 'string', format: 'uuid' },
+                    sources: { type: 'array', items: { type: 'string' }, description: 'Human-readable names of the reports/analytics the answer was based on' },
+                    toolCalls: { type: 'array', items: { type: 'string' }, description: 'Names of controlled tools invoked to answer this question' },
+                    status: { type: 'string', enum: ['ok', 'not_configured', 'provider_error'] },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: 'Empty message, or message exceeds the maximum length.' },
+          401: { description: 'Authentication required.' },
+          403: { description: 'ADMIN or ACCOUNTANT role required — CONTACT and unauthenticated callers never reach the AI model.' },
+        },
+      },
+    },
+    '/ai/conversations': {
+      get: { summary: 'List the authenticated user\'s own AI conversations (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'OK' }, 401: { description: 'Authentication required.' }, 403: { description: 'ADMIN or ACCOUNTANT role required.' } } },
+    },
+    '/ai/conversations/{id}': {
+      get: { summary: 'Get one of the authenticated user\'s own conversations with its messages', security: [{ cookieAuth: [] }], responses: { 200: { description: 'OK' }, 404: { description: 'Not found, or owned by a different user.' } } },
+      delete: { summary: 'Delete one of the authenticated user\'s own conversations', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Deleted' }, 404: { description: 'Not found, or owned by a different user.' } } },
+    },
+    '/ai/suggestions': {
+      get: { summary: 'Static, role-based example questions for the chat UI — costs no AI call', security: [{ cookieAuth: [] }], responses: { 200: { description: 'OK' }, 403: { description: 'ADMIN or ACCOUNTANT role required.' } } },
+    },
   },
 };
 

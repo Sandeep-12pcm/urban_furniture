@@ -393,3 +393,19 @@ CREATE INDEX IF NOT EXISTS idx_fiscal_periods_dates ON fiscal_periods(start_date
 CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY,setting_value TEXT NOT NULL,updated_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS tax_configurations (id UUID PRIMARY KEY,name TEXT NOT NULL,rate NUMERIC(5,2) NOT NULL CHECK(rate>=0 AND rate<=100),tax_type TEXT NOT NULL DEFAULT 'GST',tax_account_id UUID NULL REFERENCES accounts(id) ON DELETE RESTRICT,status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED')),created_by_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),archived_at TIMESTAMPTZ NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tax_configurations_name_active ON tax_configurations(lower(name)) WHERE status='ACTIVE';
+
+-- PHASE 11: AI Assistant. Conversations are strictly per-user (never shared
+-- across users, enforced at the query layer, not just the UI) and bounded —
+-- the chat service only ever loads the most recent N messages per
+-- conversation as model context, never the full history.
+CREATE TABLE IF NOT EXISTS ai_conversations (
+ id UUID PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,title TEXT NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON ai_conversations(user_id, updated_at DESC);
+CREATE TABLE IF NOT EXISTS ai_messages (
+ id UUID PRIMARY KEY,conversation_id UUID NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+ role TEXT NOT NULL CHECK(role IN ('user','assistant')),content TEXT NOT NULL,
+ tool_calls JSONB NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id, created_at);

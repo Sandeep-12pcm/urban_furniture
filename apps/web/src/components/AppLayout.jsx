@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { AiAssistant } from './AiAssistant.jsx';
 import { Sidebar } from './Sidebar.jsx';
 import { TopBar } from './TopBar.jsx';
 
@@ -30,6 +31,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+      <AiAssistant />
     </div>
   );
 }

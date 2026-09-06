@@ -29,6 +29,23 @@ const config = {
     email: process.env.ADMIN_EMAIL || 'admin@urbanfurniture.local',
     password: process.env.ADMIN_PASSWORD || (isProduction ? undefined : 'ChangeMe@12345'),
   },
+  // Phase 11 — AI Assistant. The API key lives only here, read from the
+  // backend environment, and is never sent to the frontend. XAI_BASE_URL
+  // defaults to xAI's endpoint but is swappable for any OpenAI-compatible
+  // chat-completions provider (e.g. Groq) without touching application code.
+  ai: {
+    apiKey: process.env.XAI_API_KEY || '',
+    model: process.env.XAI_MODEL || 'grok-4.6',
+    baseUrl: process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
+    requestTimeoutMs: Number(process.env.XAI_TIMEOUT_MS || 20000),
+    // Lowers reasoning-token usage on models that support it (e.g. Groq's
+    // gpt-oss family). Leave XAI_REASONING_EFFORT="" to omit the field
+    // entirely for providers/models that don't recognize it.
+    reasoningEffort: process.env.XAI_REASONING_EFFORT ?? 'low',
+    get configured() {
+      return Boolean(this.apiKey);
+    },
+  },
 };
 
 module.exports = { config };

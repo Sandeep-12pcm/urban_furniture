@@ -20,6 +20,7 @@ const { inventoryRoutes } = require('./routes/inventory');
 const { reportsRoutes } = require('./routes/reports');
 const { analyticsRoutes } = require('./routes/analytics');
 const { administrationRoutes, operationalRoutes } = require('./routes/administration');
+const { aiRoutes } = require('./routes/ai');
 const { openApiDocument } = require('./openapi');
 
 function createApp(db = pool) {
@@ -82,6 +83,7 @@ function createApp(db = pool) {
   app.use('/api', analyticsRoutes(db));
   app.use('/api', administrationRoutes(db));
   app.use('/api', operationalRoutes(db));
+  app.use('/api', aiRoutes(db));
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });
