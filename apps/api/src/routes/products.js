@@ -9,11 +9,16 @@ const { validateProduct } = require('../masterDataValidation');
 const productSelect = `
   products.id,
   products.name,
+  products.sku,
+  products.barcode,
+  products.tax_rate AS "taxRate",
+  products.image_url AS "imageUrl",
   products.type,
   products.sales_price AS "salesPrice",
   products.purchase_price AS "purchasePrice",
   products.category_id AS "categoryId",
   product_categories.name AS "categoryName",
+  COALESCE(inventory_stock.quantity, 0)::text AS "stockQuantity",
   products.status,
   products.created_at AS "createdAt",
   products.updated_at AS "updatedAt",
@@ -56,7 +61,7 @@ function productsRoutes(db) {
 
       if (req.query.search) {
         params.push(`%${String(req.query.search).trim().toLowerCase()}%`);
-        conditions.push(`lower(products.name) LIKE $${params.length}`);
+        conditions.push(`(lower(products.name) LIKE $${params.length} OR lower(coalesce(products.sku, '')) LIKE $${params.length} OR lower(coalesce(products.barcode, '')) LIKE $${params.length})`);
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -67,6 +72,7 @@ function productsRoutes(db) {
       const result = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          ${where}
          ORDER BY products.created_at DESC
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -84,6 +90,7 @@ function productsRoutes(db) {
       const result = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          WHERE products.id = $1`,
         [req.params.id],
       );
@@ -105,25 +112,49 @@ function productsRoutes(db) {
         return res.status(400).json({ message: 'Cannot assign an archived category to a product.' });
       }
 
+      const sku = req.body.sku ? String(req.body.sku).trim() : null;
+      const barcode = req.body.barcode ? String(req.body.barcode).trim() : null;
+      const taxRate = req.body.taxRate !== undefined && req.body.taxRate !== null && req.body.taxRate !== '' ? Number(req.body.taxRate) : 18.00;
+      const imageUrl = req.body.imageUrl ? String(req.body.imageUrl).trim() : null;
+
       const id = randomUUID();
-      const result = await db.query(
-        `INSERT INTO products (id, name, type, sales_price, purchase_price, category_id, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-         RETURNING id`,
-        [id, req.body.name.trim(), req.body.type, req.body.salesPrice, req.body.purchasePrice, req.body.categoryId, req.user.id],
+      await db.query(
+        `INSERT INTO products (id, name, type, sales_price, purchase_price, category_id, sku, barcode, tax_rate, image_url, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+        [id, req.body.name.trim(), req.body.type, req.body.salesPrice, req.body.purchasePrice, req.body.categoryId, sku, barcode, taxRate, imageUrl, req.user.id],
       );
+
+      const initialStock = req.body.initialStock !== undefined && req.body.initialStock !== null && req.body.initialStock !== ''
+        ? Number(req.body.initialStock)
+        : (req.body.stock !== undefined && req.body.stock !== null && req.body.stock !== '' ? Number(req.body.stock) : 0);
+
+      if (req.body.type === 'GOODS' && initialStock > 0) {
+        const cost = Number(req.body.purchasePrice) || 0;
+        await db.query(
+          `INSERT INTO inventory_stock (id, product_id, quantity, average_cost, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (product_id) DO UPDATE SET quantity = inventory_stock.quantity + EXCLUDED.quantity`,
+          [randomUUID(), id, initialStock, cost],
+        );
+        await db.query(
+          `INSERT INTO inventory_movements (id, product_id, movement_type, quantity, unit_cost, reference_type, movement_date, notes, created_by_id)
+           VALUES ($1, $2, 'ADJUSTMENT_IN', $3, $4, 'INITIAL_STOCK', CURRENT_DATE, 'Initial stock setup', $5)`,
+          [randomUUID(), id, initialStock, cost, req.user.id],
+        );
+      }
 
       await logAudit(db, {
         userId: req.user.id,
         action: 'PRODUCT_CREATED',
         entity: 'Product',
-        entityId: result.rows[0].id,
-        metadata: { name: req.body.name, type: req.body.type },
+        entityId: id,
+        metadata: { name: req.body.name, type: req.body.type, sku, barcode, taxRate },
       });
 
       const created = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          WHERE products.id = $1`,
         [id],
       );
@@ -141,7 +172,7 @@ function productsRoutes(db) {
       const errors = validateProduct(req.body, { partial: true });
       if (errors.length) return res.status(400).json({ message: errors[0], errors });
 
-      const existing = await db.query('SELECT id FROM products WHERE id = $1', [req.params.id]);
+      const existing = await db.query('SELECT id, type, purchase_price FROM products WHERE id = $1', [req.params.id]);
       if (!existing.rowCount) return res.status(404).json({ message: 'Product not found.' });
 
       if (req.body.categoryId !== undefined) {
@@ -164,14 +195,44 @@ function productsRoutes(db) {
       if (req.body.categoryId !== undefined) assign('category_id', req.body.categoryId);
       if (req.body.salesPrice !== undefined) assign('sales_price', req.body.salesPrice);
       if (req.body.purchasePrice !== undefined) assign('purchase_price', req.body.purchasePrice);
+      if (req.body.sku !== undefined) assign('sku', req.body.sku ? String(req.body.sku).trim() : null);
+      if (req.body.barcode !== undefined) assign('barcode', req.body.barcode ? String(req.body.barcode).trim() : null);
+      if (req.body.taxRate !== undefined) assign('tax_rate', req.body.taxRate !== null && req.body.taxRate !== '' ? Number(req.body.taxRate) : 18.00);
+      if (req.body.imageUrl !== undefined) assign('image_url', req.body.imageUrl ? String(req.body.imageUrl).trim() : null);
 
-      if (!fields.length) return res.status(400).json({ message: 'No changes were provided.' });
+      const targetStock = req.body.stock !== undefined ? req.body.stock : req.body.stockQuantity;
+      const hasStockUpdate = targetStock !== undefined && targetStock !== null && targetStock !== '';
 
-      assign('updated_by', req.user.id);
-      fields.push('updated_at = NOW()');
-      params.push(req.params.id);
+      if (!fields.length && !hasStockUpdate) return res.status(400).json({ message: 'No changes were provided.' });
 
-      await db.query(`UPDATE products SET ${fields.join(', ')} WHERE id = $${params.length}`, params);
+      if (fields.length) {
+        assign('updated_by', req.user.id);
+        fields.push('updated_at = NOW()');
+        params.push(req.params.id);
+        await db.query(`UPDATE products SET ${fields.join(', ')} WHERE id = $${params.length}`, params);
+      }
+
+      if (hasStockUpdate) {
+        const nextStock = Number(targetStock);
+        if (Number.isFinite(nextStock) && nextStock >= 0) {
+          const currentStockRes = await db.query('SELECT quantity, average_cost FROM inventory_stock WHERE product_id = $1', [req.params.id]);
+          const currentStock = currentStockRes.rowCount ? Number(currentStockRes.rows[0].quantity) : 0;
+          const currentCost = currentStockRes.rowCount ? Number(currentStockRes.rows[0].average_cost) : (Number(req.body.purchasePrice || existing.rows[0].purchase_price) || 0);
+          const diff = nextStock - currentStock;
+          if (diff !== 0) {
+            if (currentStockRes.rowCount) {
+              await db.query('UPDATE inventory_stock SET quantity = $1, updated_at = NOW() WHERE product_id = $2', [nextStock, req.params.id]);
+            } else {
+              await db.query('INSERT INTO inventory_stock (id, product_id, quantity, average_cost, updated_at) VALUES ($1, $2, $3, $4, NOW())', [randomUUID(), req.params.id, nextStock, currentCost]);
+            }
+            await db.query(
+              `INSERT INTO inventory_movements (id, product_id, movement_type, quantity, unit_cost, reference_type, movement_date, notes, created_by_id)
+               VALUES ($1, $2, $3, $4, $5, 'MANUAL_ADJUSTMENT', CURRENT_DATE, 'Product edit stock adjustment', $6)`,
+              [randomUUID(), req.params.id, diff > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT', Math.abs(diff), currentCost, req.user.id],
+            );
+          }
+        }
+      }
 
       await logAudit(db, {
         userId: req.user.id,
@@ -184,6 +245,7 @@ function productsRoutes(db) {
       const updated = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          WHERE products.id = $1`,
         [req.params.id],
       );
@@ -214,6 +276,7 @@ function productsRoutes(db) {
       const updated = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          WHERE products.id = $1`,
         [req.params.id],
       );
@@ -247,6 +310,7 @@ function productsRoutes(db) {
       const updated = await db.query(
         `SELECT ${productSelect} FROM products
          JOIN product_categories ON product_categories.id = products.category_id
+         LEFT JOIN inventory_stock ON inventory_stock.product_id = products.id
          WHERE products.id = $1`,
         [req.params.id],
       );

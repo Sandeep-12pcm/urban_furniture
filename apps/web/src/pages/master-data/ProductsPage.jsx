@@ -145,47 +145,90 @@ export function ProductsPage() {
         )}
 
         {!loading && !error && products.length > 0 && (
-          <Table minWidth="880px">
+          <Table minWidth="960px">
             <thead>
               <tr>
                 <Th>Product</Th>
                 <Th>Type</Th>
                 <Th>Category</Th>
+                <Th>Stock</Th>
                 <Th>Sales Price</Th>
-                <Th>Purchase Price</Th>
+                <Th>Tax</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
-                <Tr key={product.id}>
-                  <Td first className="font-semibold">{product.name}</Td>
-                  <Td><TypeBadge type={product.type} /></Td>
-                  <Td className="text-muted">{product.categoryName}</Td>
-                  <Td>{formatMoney(product.salesPrice)}</Td>
-                  <Td>{formatMoney(product.purchasePrice)}</Td>
-                  <Td><StatusBadge status={product.status} /></Td>
-                  <Td last>
-                    <RowActions>
-                      <Link to={`/master-data/products/${product.id}`}>
-                        <RowActionButton label="View product" icon={Eye} onClick={() => {}} />
-                      </Link>
-                      <RowActionButton label="Edit product" icon={Pencil} onClick={() => setFormState(product)} />
-                      {product.status === 'ACTIVE' && canArchive && (
-                        <RowActionButton label="Archive product" icon={Archive} tone="danger" onClick={() => setArchiveTarget(product)} />
+              {products.map((product) => {
+                const stockQty = Number(product.stockQuantity || 0);
+                return (
+                  <Tr key={product.id}>
+                    <Td first>
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-borderSoft bg-lavender/30 text-navy">
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl}
+                              alt={product.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <Package className="h-5 w-5" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-ink">{product.name}</div>
+                          <div className="flex items-center gap-2 text-xs text-muted">
+                            {product.sku && <span className="font-mono bg-lavender/40 px-1.5 py-0.5 rounded text-[11px] text-navy">SKU: {product.sku}</span>}
+                            {product.barcode && <span className="font-mono text-[11px]">BC: {product.barcode}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td><TypeBadge type={product.type} /></Td>
+                    <Td className="text-muted">{product.categoryName}</Td>
+                    <Td>
+                      {product.type === 'GOODS' ? (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            stockQty <= 0
+                              ? 'bg-danger/10 text-danger'
+                              : stockQty <= 5
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {stockQty} units
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">—</span>
                       )}
-                      {product.status === 'ARCHIVED' && canArchive && (
-                        <RowActionButton
-                          label="Restore product"
-                          icon={restoringId === product.id ? Loader2 : RotateCcw}
-                          onClick={() => handleRestore(product)}
-                        />
-                      )}
-                    </RowActions>
-                  </Td>
-                </Tr>
-              ))}
+                    </Td>
+                    <Td>{formatMoney(product.salesPrice)}</Td>
+                    <Td><span className="text-xs font-semibold text-muted">{product.taxRate ? `${product.taxRate}%` : '18%'}</span></Td>
+                    <Td><StatusBadge status={product.status} /></Td>
+                    <Td last>
+                      <RowActions>
+                        <Link to={`/master-data/products/${product.id}`}>
+                          <RowActionButton label="View product" icon={Eye} onClick={() => {}} />
+                        </Link>
+                        <RowActionButton label="Edit product" icon={Pencil} onClick={() => setFormState(product)} />
+                        {product.status === 'ACTIVE' && canArchive && (
+                          <RowActionButton label="Archive product" icon={Archive} tone="danger" onClick={() => setArchiveTarget(product)} />
+                        )}
+                        {product.status === 'ARCHIVED' && canArchive && (
+                          <RowActionButton
+                            label="Restore product"
+                            icon={restoringId === product.id ? Loader2 : RotateCcw}
+                            onClick={() => handleRestore(product)}
+                          />
+                        )}
+                      </RowActions>
+                    </Td>
+                  </Tr>
+                );
+              })}
             </tbody>
           </Table>
         )}
@@ -220,7 +263,18 @@ export function ProductsPage() {
 function ProductFormModal({ open, product, categories, onClose, onSaved }) {
   const { notify } = useToast();
   const isEdit = Boolean(product);
-  const [form, setForm] = useState({ name: '', type: 'GOODS', categoryId: '', salesPrice: '', purchasePrice: '' });
+  const [form, setForm] = useState({
+    name: '',
+    type: 'GOODS',
+    categoryId: '',
+    salesPrice: '',
+    purchasePrice: '',
+    sku: '',
+    barcode: '',
+    taxRate: '18',
+    imageUrl: '',
+    stock: '',
+  });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -233,12 +287,16 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
         categoryId: product?.categoryId || categories[0]?.id || '',
         salesPrice: product?.salesPrice ?? '',
         purchasePrice: product?.purchasePrice ?? '',
+        sku: product?.sku || '',
+        barcode: product?.barcode || '',
+        taxRate: product?.taxRate ?? '18',
+        imageUrl: product?.imageUrl || '',
+        stock: product?.stockQuantity ?? '',
       });
       setErrors({});
       setSubmitError('');
     }
-
-  }, [open, product]);
+  }, [open, product, categories]);
 
   async function submit(event) {
     event.preventDefault();
@@ -255,7 +313,16 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
         categoryId: form.categoryId,
         salesPrice: Number(form.salesPrice),
         purchasePrice: Number(form.purchasePrice),
+        sku: form.sku.trim() || null,
+        barcode: form.barcode.trim() || null,
+        taxRate: form.taxRate !== '' ? Number(form.taxRate) : 18,
+        imageUrl: form.imageUrl.trim() || null,
       };
+      if (form.type === 'GOODS' && form.stock !== '') {
+        payload.stock = Number(form.stock);
+        if (!isEdit) payload.initialStock = Number(form.stock);
+      }
+
       if (isEdit) {
         await productsApi.update(product.id, payload);
         notify('Product updated successfully.');
@@ -275,7 +342,7 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
     <Modal open={open} title={isEdit ? 'Edit Product' : 'Add Product'} onClose={onClose}>
       <form className="space-y-5" onSubmit={submit}>
         <FormField label="Product Name" required error={errors.name}>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Executive Chair" />
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Executive Desk" />
         </FormField>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -297,6 +364,15 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
+          <FormField label="SKU" error={errors.sku}>
+            <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="e.g. DSK-EXEC-01" />
+          </FormField>
+          <FormField label="Barcode" error={errors.barcode}>
+            <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="e.g. 8901234567890" />
+          </FormField>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
           <FormField label="Sales Price" required error={errors.salesPrice}>
             <MoneyInput value={form.salesPrice} onChange={(e) => setForm({ ...form, salesPrice: e.target.value })} />
           </FormField>
@@ -304,6 +380,53 @@ function ProductFormModal({ open, product, categories, onClose, onSaved }) {
             <MoneyInput value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
           </FormField>
         </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <FormField label="Tax Rate (%)" error={errors.taxRate}>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={form.taxRate}
+              onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
+              placeholder="18"
+            />
+          </FormField>
+          {form.type === 'GOODS' && (
+            <FormField label={isEdit ? 'Current Stock' : 'Initial Stock'} error={errors.stock || errors.initialStock}>
+              <Input
+                type="number"
+                min="0"
+                value={form.stock}
+                onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                placeholder="0"
+              />
+            </FormField>
+          )}
+        </div>
+
+        <FormField label="Product Image URL" error={errors.imageUrl}>
+          <div className="flex gap-3 items-center">
+            <div className="flex-1">
+              <Input
+                value={form.imageUrl}
+                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                placeholder="https://images.unsplash.com/photo-..."
+              />
+            </div>
+            {form.imageUrl && (
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-borderSoft bg-lavender/30">
+                <img
+                  src={form.imageUrl}
+                  alt="Preview"
+                  className="h-full w-full object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              </div>
+            )}
+          </div>
+        </FormField>
 
         {submitError && <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">{submitError}</div>}
 

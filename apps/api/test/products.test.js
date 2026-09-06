@@ -111,4 +111,62 @@ describe('Product Master API', () => {
     expect(byType.body.products).toHaveLength(1);
     expect(byType.body.products[0].name).toBe('Assembly Service');
   });
+
+  test('creates, searches, and updates product with SKU, barcode, stock, tax, and image', async () => {
+    const created = await request(app)
+      .post('/api/products')
+      .set('Cookie', adminCookie)
+      .send({
+        name: 'Ergonomic Mesh Chair',
+        type: 'GOODS',
+        categoryId,
+        salesPrice: 8500,
+        purchasePrice: 5500,
+        sku: 'CHAIR-ERG-001',
+        barcode: '8901234567890',
+        taxRate: 18.00,
+        imageUrl: 'https://images.unsplash.com/photo-1580481077195-c3a82da45899',
+        initialStock: 25,
+      })
+      .expect(201);
+
+    expect(created.body.product.sku).toBe('CHAIR-ERG-001');
+    expect(created.body.product.barcode).toBe('8901234567890');
+    expect(Number(created.body.product.taxRate)).toBe(18);
+    expect(created.body.product.imageUrl).toBe('https://images.unsplash.com/photo-1580481077195-c3a82da45899');
+    expect(Number(created.body.product.stockQuantity)).toBe(25);
+
+    // Search by SKU
+    const searchSku = await request(app)
+      .get('/api/products?search=chair-erg')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    expect(searchSku.body.products.some((p) => p.sku === 'CHAIR-ERG-001')).toBe(true);
+
+    // Search by Barcode
+    const searchBarcode = await request(app)
+      .get('/api/products?search=8901234567890')
+      .set('Cookie', adminCookie)
+      .expect(200);
+    expect(searchBarcode.body.products.some((p) => p.barcode === '8901234567890')).toBe(true);
+
+    // Update SKU, barcode, taxRate, image, and adjust stock
+    const updated = await request(app)
+      .patch(`/api/products/${created.body.product.id}`)
+      .set('Cookie', adminCookie)
+      .send({
+        sku: 'CHAIR-ERG-MOD',
+        barcode: '8901234567899',
+        taxRate: 12.00,
+        imageUrl: 'https://images.unsplash.com/photo-modified',
+        stock: 30,
+      })
+      .expect(200);
+
+    expect(updated.body.product.sku).toBe('CHAIR-ERG-MOD');
+    expect(updated.body.product.barcode).toBe('8901234567899');
+    expect(Number(updated.body.product.taxRate)).toBe(12);
+    expect(updated.body.product.imageUrl).toBe('https://images.unsplash.com/photo-modified');
+    expect(Number(updated.body.product.stockQuantity)).toBe(30);
+  });
 });

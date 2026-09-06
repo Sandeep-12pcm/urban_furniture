@@ -112,6 +112,46 @@ function validateProduct(body, { partial = false } = {}) {
     if (!isValidMoney(body.purchasePrice)) errors.push('Purchase price must be a valid amount and cannot be negative.');
   }
 
+  if (body.sku !== undefined && body.sku !== null && String(body.sku).trim().length > 50) {
+    errors.push('SKU must be 50 characters or fewer.');
+  }
+
+  if (body.barcode !== undefined && body.barcode !== null && String(body.barcode).trim().length > 50) {
+    errors.push('Barcode must be 50 characters or fewer.');
+  }
+
+  if (body.taxRate !== undefined && body.taxRate !== null && body.taxRate !== '') {
+    const rate = Number(body.taxRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      errors.push('Tax rate must be a percentage between 0 and 100.');
+    }
+  }
+
+  if (body.imageUrl !== undefined && body.imageUrl !== null && String(body.imageUrl).trim().length > 1000) {
+    errors.push('Image URL must be 1000 characters or fewer.');
+  }
+
+  if (body.initialStock !== undefined && body.initialStock !== null && body.initialStock !== '') {
+    const stock = Number(body.initialStock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      errors.push('Initial stock cannot be negative.');
+    }
+  }
+
+  if (body.stock !== undefined && body.stock !== null && body.stock !== '') {
+    const stock = Number(body.stock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      errors.push('Stock cannot be negative.');
+    }
+  }
+
+  if (body.stockQuantity !== undefined && body.stockQuantity !== null && body.stockQuantity !== '') {
+    const stock = Number(body.stockQuantity);
+    if (!Number.isFinite(stock) || stock < 0) {
+      errors.push('Stock quantity cannot be negative.');
+    }
+  }
+
   return errors;
 }
 

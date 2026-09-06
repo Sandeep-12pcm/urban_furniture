@@ -50,28 +50,81 @@ export function ProductDetailPage() {
         <div className="space-y-6">
           <div className="flex flex-col gap-4 rounded-2xl border border-white/80 bg-white p-6 shadow-card sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-lavender/40 text-navy">
-                <Package className="h-6 w-6" />
+              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-borderSoft bg-lavender/40 text-navy shadow-inner">
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <Package className="h-7 w-7" />
+                )}
               </div>
               <div>
                 <h1 className="text-xl font-bold text-ink">{product.name}</h1>
-                <p className="text-sm text-muted">{product.categoryName}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <p className="text-sm text-muted">{product.categoryName}</p>
+                  {product.sku && (
+                    <span className="font-mono bg-lavender/50 text-navy font-semibold px-2 py-0.5 rounded text-xs">
+                      SKU: {product.sku}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <TypeBadge type={product.type} />
               <StatusBadge status={product.status} />
+              {product.type === 'GOODS' && (
+                <span
+                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                    Number(product.stockQuantity || 0) <= 0
+                      ? 'bg-danger/10 text-danger'
+                      : Number(product.stockQuantity || 0) <= 5
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {Number(product.stockQuantity || 0)} units in stock
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
             <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
-              <h2 className="mb-4 text-lg font-bold text-ink">Pricing</h2>
+              <h2 className="mb-4 text-lg font-bold text-ink">Inventory & Codes</h2>
+              <dl className="space-y-4">
+                <Field
+                  label="SKU"
+                  value={product.sku ? <span className="font-mono font-semibold">{product.sku}</span> : '—'}
+                />
+                <Field
+                  label="Barcode"
+                  value={product.barcode ? <span className="font-mono font-semibold">{product.barcode}</span> : '—'}
+                />
+                <Field
+                  label="Stock On Hand"
+                  value={
+                    product.type === 'GOODS'
+                      ? `${product.stockQuantity || 0} units`
+                      : 'Not tracked (Service/Combo)'
+                  }
+                />
+              </dl>
+            </div>
+
+            <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
+              <h2 className="mb-4 text-lg font-bold text-ink">Pricing & Tax</h2>
               <dl className="space-y-4">
                 <Field label="Sales Price" value={formatMoney(product.salesPrice)} />
                 <Field label="Purchase Price" value={formatMoney(product.purchasePrice)} />
+                <Field label="Tax Rate" value={`${product.taxRate ? `${product.taxRate}%` : '18.00%'}`} />
               </dl>
             </div>
+
             <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
               <h2 className="mb-4 text-lg font-bold text-ink">Record History</h2>
               <dl className="space-y-4">
@@ -82,12 +135,21 @@ export function ProductDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-borderSoft bg-white/60 p-6">
-            <h2 className="text-lg font-bold text-ink">Coming in later phases</h2>
-            <p className="mt-1 text-sm text-muted">
-              SKU, barcode, stock, tax, and product image fields will be added once Inventory and Invoicing are implemented.
-            </p>
-          </div>
+          {product.imageUrl && (
+            <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
+              <h2 className="mb-4 text-lg font-bold text-ink">Product Image Preview</h2>
+              <div className="max-w-md overflow-hidden rounded-xl border border-borderSoft bg-surface/50 shadow-sm">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="h-64 w-full object-cover transition hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.parentElement.style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

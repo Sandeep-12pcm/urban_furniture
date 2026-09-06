@@ -50,6 +50,28 @@ export function validateProductForm(form) {
   if (isBlank(form.categoryId)) errors.categoryId = 'Category is required.';
   if (!isValidMoney(form.salesPrice)) errors.salesPrice = 'Sales price must be a valid amount and cannot be negative.';
   if (!isValidMoney(form.purchasePrice)) errors.purchasePrice = 'Purchase price must be a valid amount and cannot be negative.';
+
+  if (form.sku && form.sku.trim().length > 50) errors.sku = 'SKU must be 50 characters or fewer.';
+  if (form.barcode && form.barcode.trim().length > 50) errors.barcode = 'Barcode must be 50 characters or fewer.';
+  if (form.taxRate !== undefined && form.taxRate !== null && form.taxRate !== '') {
+    const rate = Number(form.taxRate);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      errors.taxRate = 'Tax rate must be between 0% and 100%.';
+    }
+  }
+  if (form.imageUrl && form.imageUrl.trim().length > 1000) errors.imageUrl = 'Image URL must be 1000 characters or fewer.';
+  if (form.stock !== undefined && form.stock !== null && form.stock !== '') {
+    const stock = Number(form.stock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      errors.stock = 'Stock quantity cannot be negative.';
+    }
+  }
+  if (form.initialStock !== undefined && form.initialStock !== null && form.initialStock !== '') {
+    const stock = Number(form.initialStock);
+    if (!Number.isFinite(stock) || stock < 0) {
+      errors.initialStock = 'Initial stock cannot be negative.';
+    }
+  }
   return errors;
 }
 

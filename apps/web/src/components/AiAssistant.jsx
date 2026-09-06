@@ -1,8 +1,45 @@
+import DOMPurify from 'dompurify';
 import { Bot, Loader2, MessageCircle, RotateCcw, Send, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { marked } from 'marked';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { aiApi } from '../lib/aiApi.js';
 import { canManageMasterData, useAuth } from '../lib/AuthContext.jsx';
+
+// Configure marked parser for AI responses
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
+// Configure DOMPurify hook to ensure all links safely open in a new tab
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
+function MarkdownMessage({ content }) {
+  const html = useMemo(() => {
+    if (!content) return '';
+    try {
+      const parsed = marked.parse(content);
+      return DOMPurify.sanitize(parsed, {
+        ADD_ATTR: ['target', 'rel'],
+      });
+    } catch {
+      return DOMPurify.sanitize(content);
+    }
+  }, [content]);
+
+  return (
+    <div
+      className="ai-markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 // Floating AI assistant — bottom-right launcher that opens a chatbot-style
 // popup. Read-only: it can explain data and the app, never perform actions.
@@ -76,7 +113,7 @@ export function AiAssistant() {
   return (
     <div className="no-print fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
       {open && (
-        <div className="flex h-[32rem] w-[22rem] max-w-[90vw] flex-col overflow-hidden rounded-2xl border border-borderSoft bg-white shadow-soft sm:w-96">
+        <div className="flex h-[34rem] w-[23rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-borderSoft bg-white shadow-soft sm:w-[26rem]">
           <div className="flex items-center justify-between gap-2 bg-navy px-4 py-3 text-white">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
@@ -119,15 +156,21 @@ export function AiAssistant() {
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm shadow-card ${
+                  className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm shadow-card ${
                     m.role === 'user'
-                      ? 'bg-navy text-white'
+                      ? 'bg-navy text-white whitespace-pre-wrap'
                       : m.failed
                         ? 'border border-danger/30 bg-danger/10 text-ink'
                         : 'border border-borderSoft bg-white text-ink'
                   }`}
                 >
-                  {m.content}
+                  {m.role === 'user' ? (
+                    m.content
+                  ) : m.failed ? (
+                    <p className="text-danger font-medium">{m.content}</p>
+                  ) : (
+                    <MarkdownMessage content={m.content} />
+                  )}
                   {m.sources?.length > 0 && (
                     <p className="mt-2 border-t border-borderSoft/70 pt-1 text-[11px] text-muted">
                       Based on: {m.sources.join(', ')}

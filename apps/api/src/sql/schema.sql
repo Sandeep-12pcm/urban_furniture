@@ -138,6 +138,10 @@ CREATE TABLE IF NOT EXISTS products (
   sales_price NUMERIC(14, 2) NOT NULL CHECK (sales_price >= 0),
   purchase_price NUMERIC(14, 2) NOT NULL CHECK (purchase_price >= 0),
   category_id UUID NOT NULL REFERENCES product_categories(id) ON DELETE RESTRICT,
+  sku TEXT NULL,
+  barcode TEXT NULL,
+  tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 18.00,
+  image_url TEXT NULL,
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -146,7 +150,15 @@ CREATE TABLE IF NOT EXISTS products (
   updated_by UUID NULL REFERENCES users(id) ON DELETE SET NULL
 );
 
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS sku TEXT NULL,
+  ADD COLUMN IF NOT EXISTS barcode TEXT NULL,
+  ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 18.00,
+  ADD COLUMN IF NOT EXISTS image_url TEXT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_products_name ON products (lower(name));
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products (lower(sku));
+CREATE INDEX IF NOT EXISTS idx_products_barcode ON products (barcode);
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products (category_id);
 CREATE INDEX IF NOT EXISTS idx_products_type ON products (type);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products (status);
