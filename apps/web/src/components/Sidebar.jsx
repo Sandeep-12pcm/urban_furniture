@@ -114,6 +114,23 @@ export function Sidebar({ user, open, onClose }) {
             <NavItem to={roleHome(user.role)} label="Dashboard" icon={LayoutDashboard} />
           </div>
 
+          {user.role === 'CONTACT' && (
+            <div>
+              <p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">
+                {user.accountType === 'VENDOR' ? 'Vendor Portal' : 'Customer Portal'}
+              </p>
+              <div className="space-y-1">
+                {user.accountType !== 'VENDOR' && (
+                  <NavItem to="/sales/invoices" label="My Invoices" icon={ReceiptText} />
+                )}
+                {user.accountType !== 'CUSTOMER' && (
+                  <NavItem to="/purchases/bills" label="My Bills" icon={NotebookText} />
+                )}
+                <NavItem to="/payments" label="Payment History" icon={Wallet} />
+              </div>
+            </div>
+          )}
+
           {showMasterData && (
             <div>
               <p className="px-3.5 pb-2 text-xs font-bold uppercase tracking-[0.2em] text-white/45">Master Data</p>

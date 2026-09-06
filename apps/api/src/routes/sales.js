@@ -1,14 +1,18 @@
 const express = require('express');
 const { authenticate, authorize } = require('../middleware/auth');
 const sales = require('../services/salesService');
+const payments = require('../services/paymentService');
+const pdfService = require('../services/pdfService');
 const { parsePagination, buildPaginationMeta } = require('../lib/pagination');
 const { sendServiceError } = require('../lib/serviceError');
 
 const access = (db) => [authenticate(db), authorize('ADMIN', 'ACCOUNTANT')];
+const viewAccess = (db) => [authenticate(db), authorize('ADMIN', 'ACCOUNTANT', 'CONTACT')];
 
 function salesRoutes(db) {
   const router = express.Router();
   const a = access(db);
+  const va = viewAccess(db);
 
   router.get('/sales/orders', ...a, async (req, res, next) => {
     try {
@@ -64,15 +68,22 @@ function salesRoutes(db) {
     catch (error) { sendServiceError(res, error); }
   });
 
-  router.get('/sales/invoices', ...a, async (req, res, next) => {
+  router.get('/sales/invoices', ...va, async (req, res, next) => {
     try {
       const { page, limit, offset } = parsePagination(req.query);
       const conditions = [];
       const params = [];
       const add = (sql, value) => { params.push(value); conditions.push(sql.replace('?', `$${params.length}`)); };
+      if (req.user.role === 'CONTACT') {
+        if (!req.user.contactId) {
+          return res.status(403).json({ message: 'User is not linked to a contact.' });
+        }
+        add('i.customer_id = ?', req.user.contactId);
+      } else if (req.query.customerId) {
+        add('i.customer_id = ?', req.query.customerId);
+      }
       if (req.query.status) add('i.status = ?', req.query.status);
       if (req.query.paymentStatus) add('i.payment_status = ?', req.query.paymentStatus);
-      if (req.query.customerId) add('i.customer_id = ?', req.query.customerId);
       if (req.query.search) {
         params.push(`%${String(req.query.search).toLowerCase()}%`);
         conditions.push(`(lower(i.invoice_number) LIKE $${params.length} OR lower(coalesce(i.reference,'')) LIKE $${params.length} OR lower(c.name) LIKE $${params.length})`);
@@ -101,11 +112,32 @@ function salesRoutes(db) {
     catch (error) { sendServiceError(res, error); }
   });
 
-  router.get('/sales/invoices/:id', ...a, async (req, res, next) => {
+  router.get('/sales/invoices/:id', ...va, async (req, res, next) => {
     try {
       const invoice = await sales.getInvoice(db, req.params.id);
       if (!invoice) return res.status(404).json({ message: 'Customer Invoice not found.' });
+      if (req.user.role === 'CONTACT' && invoice.customerId !== req.user.contactId) {
+        return res.status(403).json({ message: 'You are not authorized to access this resource.' });
+      }
       return res.json({ customerInvoice: invoice });
+    } catch (error) { return next(error); }
+  });
+
+  router.get('/sales/invoices/:id/pdf', ...va, async (req, res, next) => {
+    try {
+      const invoice = await sales.getInvoice(db, req.params.id);
+      if (!invoice) return res.status(404).json({ message: 'Customer Invoice not found.' });
+      if (req.user.role === 'CONTACT' && invoice.customerId !== req.user.contactId) {
+        return res.status(403).json({ message: 'You are not authorized to access this resource.' });
+      }
+      const outstanding = await payments.getOutstanding(db, 'CUSTOMER', req.params.id);
+      if (outstanding) {
+        invoice.amountPaid = outstanding.amountPaid;
+        invoice.outstandingAmount = outstanding.outstandingAmount;
+      }
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+      pdfService.generateInvoicePdf(invoice, res);
     } catch (error) { return next(error); }
   });
 

@@ -18,6 +18,7 @@ import { FilterSelect, SearchBar, Toolbar } from '../../components/Toolbar.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { formatDate, formatMoney } from '../../lib/format.js';
 import { contactsApi, productsApi, purchasesApi } from '../../lib/masterDataApi.js';
+import { useAuth } from '../../lib/AuthContext.jsx';
 import { useDebouncedValue, useResourceList } from '../../lib/useResourceList.js';
 
 const STATUS_OPTIONS = [
@@ -28,7 +29,9 @@ const STATUS_OPTIONS = [
 ];
 
 export function VendorBillsPage() {
+  const { user } = useAuth();
   const { notify } = useToast();
+  const isContact = user?.role === 'CONTACT';
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -87,10 +90,12 @@ export function VendorBillsPage() {
         title="Vendor Bills"
         subtitle="Supplier bills and their accounting state"
         actions={
-          <Button type="button" onClick={() => { setPrefill(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" />
-            New Bill
-          </Button>
+          !isContact && (
+            <Button type="button" onClick={() => { setPrefill(null); setFormOpen(true); }}>
+              <Plus className="h-4 w-4" />
+              New Bill
+            </Button>
+          )
         }
       />
 
@@ -103,7 +108,11 @@ export function VendorBillsPage() {
         {loading && <LoadingTable columns={6} />}
         {!loading && error && <ErrorState message={error} onRetry={reload} />}
         {!loading && !error && bills.length === 0 && (
-          <EmptyState icon={FileText} title="No vendor bills found." action={<Button type="button" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />New Bill</Button>} />
+          <EmptyState
+            icon={FileText}
+            title="No vendor bills found."
+            action={!isContact && <Button type="button" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />New Bill</Button>}
+          />
         )}
 
         {!loading && !error && bills.length > 0 && (
@@ -138,7 +147,7 @@ export function VendorBillsPage() {
                       <Link to={`/purchases/bills/${bill.id}`}>
                         <RowActionButton label="View bill" icon={Eye} onClick={() => {}} />
                       </Link>
-                      {bill.status === 'DRAFT' && (
+                      {!isContact && bill.status === 'DRAFT' && (
                         <>
                           <RowActionButton label="Post bill" icon={postingId === bill.id ? Loader2 : Send} onClick={() => postBill(bill)} />
                           <RowActionButton label="Cancel bill" icon={XCircle} tone="danger" onClick={() => setCancelTarget(bill)} />

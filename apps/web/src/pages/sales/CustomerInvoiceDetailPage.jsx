@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Send, XCircle } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, Printer, Send, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/Button.jsx';
@@ -9,17 +9,21 @@ import { PaymentPanel } from '../../components/PaymentPanel.jsx';
 import { StatusPill } from '../../components/StatusPill.jsx';
 import { Table, Td, Th, Tr } from '../../components/Table.jsx';
 import { useToast } from '../../components/Toast.jsx';
+import { useAuth } from '../../lib/AuthContext.jsx';
+import { downloadFile } from '../../lib/api.js';
 import { formatDate, formatMoney } from '../../lib/format.js';
 import { salesApi } from '../../lib/masterDataApi.js';
 
 export function CustomerInvoiceDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { notify } = useToast();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [acting, setActing] = useState('');
+  const [downloading, setDownloading] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   async function load() {
@@ -36,6 +40,18 @@ export function CustomerInvoiceDetailPage() {
   }
 
   useEffect(() => { load(); }, [id]);
+
+  async function handleDownloadPdf() {
+    setDownloading(true);
+    try {
+      await downloadFile(`/sales/invoices/${id}/pdf`, `${invoice?.invoiceNumber || 'invoice'}.pdf`);
+      notify('Invoice PDF downloaded.');
+    } catch (err) {
+      notify(err.message || 'Failed to download invoice PDF.', { tone: 'error' });
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function post() {
     setActing('post');
@@ -65,39 +81,77 @@ export function CustomerInvoiceDetailPage() {
     }
   }
 
+  const isContact = user?.role === 'CONTACT';
+
   return (
     <div>
-      <button type="button" onClick={() => navigate('/sales/invoices')} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-navy hover:text-indigo">
-        <ArrowLeft className="h-4 w-4" />
-        Back to Customer Invoices
-      </button>
+      <div className="no-print">
+        <button type="button" onClick={() => navigate('/sales/invoices')} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-navy hover:text-indigo">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Customer Invoices
+        </button>
+      </div>
 
       {loading && <div className="rounded-2xl border border-white/80 bg-white p-8 shadow-card"><InlineSpinner label="Loading invoice…" /></div>}
       {!loading && error && <ErrorState message={error} onRetry={load} />}
 
       {!loading && !error && invoice && (
         <div className="space-y-6">
-          <PageHeader
-            title={invoice.invoiceNumber}
-            subtitle={`${invoice.customerName} · Due ${formatDate(invoice.dueDate)}`}
-            actions={
-              <>
-                <StatusPill status={invoice.status} />
-                {invoice.status === 'POSTED' && <StatusPill status={invoice.paymentStatus} />}
-                {invoice.status === 'DRAFT' && (
-                  <>
-                    <Button type="button" variant="secondary" onClick={() => setCancelOpen(true)}><XCircle className="h-4 w-4" />Cancel</Button>
-                    <Button type="button" onClick={post} disabled={acting === 'post'}>
-                      {acting === 'post' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Post Invoice
-                    </Button>
-                  </>
-                )}
-              </>
-            }
-          />
+          <div className="no-print">
+            <PageHeader
+              title={invoice.invoiceNumber}
+              subtitle={`${invoice.customerName} · Due ${formatDate(invoice.dueDate)}`}
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill status={invoice.status} />
+                  {invoice.status === 'POSTED' && <StatusPill status={invoice.paymentStatus} />}
+                  <Button type="button" variant="secondary" onClick={handleDownloadPdf} disabled={downloading}>
+                    <Download className="h-4 w-4" />
+                    {downloading ? 'Downloading…' : 'Download PDF'}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => window.print()}>
+                    <Printer className="h-4 w-4" />
+                    Print Invoice
+                  </Button>
+                  {!isContact && invoice.status === 'DRAFT' && (
+                    <>
+                      <Button type="button" variant="secondary" onClick={() => setCancelOpen(true)}>
+                        <XCircle className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                      <Button type="button" onClick={post} disabled={acting === 'post'}>
+                        {acting === 'post' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Post Invoice
+                      </Button>
+                    </>
+                  )}
+                </div>
+              }
+            />
+          </div>
 
-          <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
+          <div className="printable-document rounded-2xl border border-white/80 bg-white p-6 shadow-card">
+            {/* Header visible only in print mode */}
+            <div className="hidden print:block print:mb-6 border-b border-slate-200 pb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">Urban Furniture Pvt. Ltd.</h1>
+                  <p className="text-xs text-slate-600">104 Industrial Area, Phase II, New Delhi, 110020, India</p>
+                  <p className="text-xs text-slate-600">GSTIN: 07AAAAU1234A1Z5 | accounts@urbanfurniture.local</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-xl font-bold text-slate-800">TAX INVOICE</h2>
+                  <p className="text-sm font-semibold">{invoice.invoiceNumber}</p>
+                  <p className="text-xs text-slate-600">Date: {formatDate(invoice.invoiceDate)}</p>
+                  <p className="text-xs text-slate-600">Due: {formatDate(invoice.dueDate)}</p>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <p className="text-xs font-bold uppercase text-slate-500">Bill To:</p>
+                <p className="text-sm font-bold text-slate-900">{invoice.customerName}</p>
+              </div>
+            </div>
+
             <Table minWidth="600px">
               <thead>
                 <tr>
@@ -127,17 +181,19 @@ export function CustomerInvoiceDetailPage() {
             </div>
           </div>
 
-          {invoice.status === 'POSTED' && (
-            <PaymentPanel type="CUSTOMER" targetId={invoice.id} targetStatus={invoice.status} onChanged={load} />
-          )}
+          <div className="no-print">
+            {invoice.status === 'POSTED' && (
+              <PaymentPanel type="CUSTOMER" targetId={invoice.id} targetStatus={invoice.status} onChanged={load} />
+            )}
 
-          <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
-            <h2 className="mb-4 text-lg font-bold text-ink">Record History</h2>
-            <dl className="grid gap-4 sm:grid-cols-3 text-sm">
-              <div><dt className="text-xs font-bold uppercase text-muted">Sales Order</dt><dd className="mt-1 font-semibold">{invoice.salesOrderNumber || '—'}</dd></div>
-              <div><dt className="text-xs font-bold uppercase text-muted">Created By</dt><dd className="mt-1 font-semibold">{invoice.createdBy}</dd></div>
-              <div><dt className="text-xs font-bold uppercase text-muted">Posted By</dt><dd className="mt-1 font-semibold">{invoice.postedBy || '—'}</dd></div>
-            </dl>
+            <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
+              <h2 className="mb-4 text-lg font-bold text-ink">Record History</h2>
+              <dl className="grid gap-4 sm:grid-cols-3 text-sm">
+                <div><dt className="text-xs font-bold uppercase text-muted">Sales Order</dt><dd className="mt-1 font-semibold">{invoice.salesOrderNumber || '—'}</dd></div>
+                <div><dt className="text-xs font-bold uppercase text-muted">Created By</dt><dd className="mt-1 font-semibold">{invoice.createdBy}</dd></div>
+                <div><dt className="text-xs font-bold uppercase text-muted">Posted By</dt><dd className="mt-1 font-semibold">{invoice.postedBy || '—'}</dd></div>
+              </dl>
+            </div>
           </div>
         </div>
       )}

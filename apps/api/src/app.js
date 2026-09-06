@@ -21,6 +21,7 @@ const { reportsRoutes } = require('./routes/reports');
 const { analyticsRoutes } = require('./routes/analytics');
 const { administrationRoutes, operationalRoutes } = require('./routes/administration');
 const { aiRoutes } = require('./routes/ai');
+const { portalRoutes } = require('./routes/portal');
 const { openApiDocument } = require('./openapi');
 
 function createApp(db = pool) {
@@ -84,6 +85,7 @@ function createApp(db = pool) {
   app.use('/api', administrationRoutes(db));
   app.use('/api', operationalRoutes(db));
   app.use('/api', aiRoutes(db));
+  app.use('/api', portalRoutes(db));
 
   app.use((req, res) => {
     res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });

@@ -1,4 +1,4 @@
-import { Loader2, Plus, Wallet, XCircle } from 'lucide-react';
+import { Download, Loader2, Plus, Wallet, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from './Button.jsx';
 import { ConfirmDialog } from './ConfirmDialog.jsx';
@@ -10,12 +10,15 @@ import { Select } from './Select.jsx';
 import { StatusPill } from './StatusPill.jsx';
 import { Table, Td, Th, Tr } from './Table.jsx';
 import { useToast } from './Toast.jsx';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { downloadFile } from '../lib/api.js';
 import { formatDate, formatMoney } from '../lib/format.js';
 import { paymentsApi, purchasesApi, salesApi } from '../lib/masterDataApi.js';
 
 // Shared by the Customer Invoice and Vendor Bill detail pages: shows the
 // outstanding balance, payment history, and a "Record Payment" flow.
 export function PaymentPanel({ type, targetId, targetStatus, onChanged }) {
+  const { user } = useAuth();
   const { notify } = useToast();
   const [outstanding, setOutstanding] = useState(null);
   const [history, setHistory] = useState([]);
@@ -23,6 +26,7 @@ export function PaymentPanel({ type, targetId, targetStatus, onChanged }) {
   const [formOpen, setFormOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [downloadingId, setDownloadingId] = useState('');
 
   const isCustomer = type === 'CUSTOMER';
   const outstandingApi = isCustomer ? salesApi.invoiceOutstanding : purchasesApi.billOutstanding;
@@ -64,7 +68,20 @@ export function PaymentPanel({ type, targetId, targetStatus, onChanged }) {
     }
   }
 
-  const canRecord = targetStatus === 'POSTED' && outstanding && Number(outstanding.outstandingAmount) > 0;
+  async function downloadReceipt(payment) {
+    setDownloadingId(payment.id);
+    try {
+      await downloadFile(`/payments/${payment.id}/receipt/pdf`, `RECEIPT-${payment.paymentNumber}.pdf`);
+      notify(`Receipt for ${payment.paymentNumber} downloaded.`);
+    } catch (err) {
+      notify(err.message || 'Failed to download receipt PDF.', { tone: 'error' });
+    } finally {
+      setDownloadingId('');
+    }
+  }
+
+  const isContact = user?.role === 'CONTACT';
+  const canRecord = !isContact && targetStatus === 'POSTED' && outstanding && Number(outstanding.outstandingAmount) > 0;
 
   return (
     <div className="rounded-2xl border border-white/80 bg-white p-6 shadow-card">
@@ -108,18 +125,30 @@ export function PaymentPanel({ type, targetId, targetStatus, onChanged }) {
                 <Td className="capitalize">{payment.method?.toLowerCase()}</Td>
                 <Td>{formatMoney(payment.amount)}</Td>
                 <Td><StatusPill status={payment.status} /></Td>
-                <Td last>
-                  {payment.status === 'POSTED' && (
+                <Td last className="text-right">
+                  <div className="flex items-center justify-end gap-1">
                     <button
                       type="button"
-                      aria-label="Cancel payment"
-                      title="Cancel payment"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-danger hover:bg-danger/10"
-                      onClick={() => setCancelTarget(payment)}
+                      aria-label="Download receipt"
+                      title="Download receipt"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-navy hover:bg-slate-100"
+                      onClick={() => downloadReceipt(payment)}
+                      disabled={downloadingId === payment.id}
                     >
-                      <XCircle className="h-4 w-4" />
+                      {downloadingId === payment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     </button>
-                  )}
+                    {!isContact && payment.status === 'POSTED' && (
+                      <button
+                        type="button"
+                        aria-label="Cancel payment"
+                        title="Cancel payment"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-danger hover:bg-danger/10"
+                        onClick={() => setCancelTarget(payment)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </Td>
               </Tr>
             ))}

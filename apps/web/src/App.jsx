@@ -72,6 +72,7 @@ function UnauthorizedRoute() {
 }
 
 const MASTER_DATA_ROLES = ['ADMIN', 'ACCOUNTANT'];
+const DOCUMENT_ROLES = ['ADMIN', 'ACCOUNTANT', 'CONTACT'];
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -148,13 +149,8 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/accounting/account-balances" element={<AccountBalancesPage />} />
                 <Route path="/purchases/orders" element={<PurchaseOrdersPage />} />
                 <Route path="/purchases/orders/:id" element={<PurchaseOrderDetailPage />} />
-                <Route path="/purchases/bills" element={<VendorBillsPage />} />
-                <Route path="/purchases/bills/:id" element={<VendorBillDetailPage />} />
                 <Route path="/sales/orders" element={<SalesOrdersPage />} />
                 <Route path="/sales/orders/:id" element={<SalesOrderDetailPage />} />
-                <Route path="/sales/invoices" element={<CustomerInvoicesPage />} />
-                <Route path="/sales/invoices/:id" element={<CustomerInvoiceDetailPage />} />
-                <Route path="/payments" element={<PaymentsPage />} />
                 <Route path="/inventory" element={<InventoryPage />} />
                 <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
                 <Route path="/inventory/products/:id" element={<InventoryProductDetailPage />} />
@@ -165,6 +161,14 @@ function AuthenticatedApp({ user, setUser }) {
                 <Route path="/reports/balance-sheet" element={<BalanceSheetPage />} />
                 <Route path="/reports/budget" element={<BudgetReportPage />} />
                 <Route path="/analytics/receivables" element={<ReceivablesPage />} /><Route path="/analytics/payables" element={<PayablesPage />} /><Route path="/analytics/cash-flow" element={<CashFlowPage />} /><Route path="/analytics/trends" element={<TrendsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute user={user} roles={DOCUMENT_ROLES} />}>
+                <Route path="/purchases/bills" element={<VendorBillsPage />} />
+                <Route path="/purchases/bills/:id" element={<VendorBillDetailPage />} />
+                <Route path="/sales/invoices" element={<CustomerInvoicesPage />} />
+                <Route path="/sales/invoices/:id" element={<CustomerInvoiceDetailPage />} />
+                <Route path="/payments" element={<PaymentsPage />} />
               </Route>
             </Route>
           </Route>

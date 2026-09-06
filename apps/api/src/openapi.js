@@ -135,6 +135,19 @@ const openApiDocument = {
     },
     '/sales/invoices/from-order/{orderId}': { get: { summary: 'Prefill a Customer Invoice from a confirmed Sales Order (does not create it)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Prefilled invoice payload' }, 400: { description: 'Order is not confirmed' } } } },
     '/sales/invoices/{id}': { get: { summary: 'Get a Customer Invoice with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Customer Invoice (rejected once POSTED/CANCELLED)', security: [{ cookieAuth: [] }] } },
+    '/sales/invoices/{id}/pdf': {
+      get: {
+        summary: 'Download official Customer Invoice PDF (ADMIN, ACCOUNTANT, or authorized customer CONTACT)',
+        security: [{ cookieAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'PDF stream', content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Access forbidden (IDOR protection)' },
+          404: { description: 'Invoice not found' },
+        },
+      },
+    },
     '/sales/invoices/{id}/post': { post: { summary: 'Post a draft Customer Invoice and atomically create its balanced Sales Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Invoice posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
     '/sales/invoices/{id}/cancel': { post: { summary: 'Cancel a draft Customer Invoice', security: [{ cookieAuth: [] }] } },
     '/sales/invoices/{id}/outstanding': { get: { summary: 'Total/paid/outstanding amount for a Customer Invoice', security: [{ cookieAuth: [] }] } },
@@ -155,6 +168,19 @@ const openApiDocument = {
     },
     '/purchases/bills/from-order/{orderId}': { get: { summary: 'Prefill a Vendor Bill from a confirmed Purchase Order (does not create it)', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Prefilled bill payload' }, 400: { description: 'Order is not confirmed' } } } },
     '/purchases/bills/{id}': { get: { summary: 'Get a Vendor Bill with its items', security: [{ cookieAuth: [] }] }, patch: { summary: 'Update a draft Vendor Bill (rejected once POSTED)', security: [{ cookieAuth: [] }] } },
+    '/purchases/bills/{id}/pdf': {
+      get: {
+        summary: 'Download official Vendor Bill PDF (ADMIN, ACCOUNTANT, or authorized vendor CONTACT)',
+        security: [{ cookieAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'PDF stream', content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Access forbidden (IDOR protection)' },
+          404: { description: 'Bill not found' },
+        },
+      },
+    },
     '/purchases/bills/{id}/post': { post: { summary: 'Post a draft Vendor Bill and atomically create its balanced Purchase Journal entry', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Bill posted with journal entry' }, 400: { description: 'Already posted or accounting configuration is invalid' } } } },
     '/purchases/bills/{id}/cancel': { post: { summary: 'Cancel a draft Vendor Bill', security: [{ cookieAuth: [] }] } },
     '/purchases/bills/{id}/outstanding': { get: { summary: 'Total/paid/outstanding amount for a Vendor Bill', security: [{ cookieAuth: [] }] } },
@@ -164,7 +190,31 @@ const openApiDocument = {
     // posts a reversing entry (debit/credit swapped) and recomputes payment status.
     '/payments': { get: { summary: 'List all payments (search, filter by type/status/contact/invoice/bill, paginate)', security: [{ cookieAuth: [] }] } },
     '/payments/{id}': { get: { summary: 'Get a payment by id', security: [{ cookieAuth: [] }] } },
+    '/payments/{id}/receipt/pdf': {
+      get: {
+        summary: 'Download official Payment Receipt / Voucher PDF (ADMIN, ACCOUNTANT, or authorized CONTACT)',
+        security: [{ cookieAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'PDF stream', content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } } },
+          401: { description: 'Authentication required' },
+          403: { description: 'Access forbidden (IDOR protection)' },
+          404: { description: 'Payment not found' },
+        },
+      },
+    },
     '/payments/{id}/cancel': { post: { summary: 'Cancel a posted payment via a reversing Journal Entry; recomputes the invoice/bill payment status', security: [{ cookieAuth: [] }], responses: { 200: { description: 'Cancelled with reversal entry' }, 400: { description: 'Payment already cancelled' } } } },
+    '/portal/summary': {
+      get: {
+        summary: 'Get Customer or Vendor portal dashboard summary (KPIs, recent documents, recent payments)',
+        security: [{ cookieAuth: [] }],
+        responses: {
+          200: { description: 'Portal summary data' },
+          401: { description: 'Authentication required' },
+          403: { description: 'CONTACT role required' },
+        },
+      },
+    },
     '/inventory': { get: { summary: 'List GOODS inventory with current stock, valuation, status, search and pagination (ADMIN/ACCOUNTANT)', security: [{ cookieAuth: [] }], parameters: [{ name: 'page', in: 'query' }, { name: 'limit', in: 'query' }, { name: 'search', in: 'query' }, { name: 'status', in: 'query', schema: { enum: ['IN_STOCK','LOW_STOCK','OUT_OF_STOCK'] } }], responses: { 200: { description: 'Inventory and summary' }, 401: { description: 'Authentication required' }, 403: { description: 'Internal roles only' } } } },
     '/inventory/movements': { get: { summary: 'List immutable stock ledger movements with database filtering and pagination', security: [{ cookieAuth: [] }], parameters: [{ name: 'productId', in: 'query' }, { name: 'movementType', in: 'query' }, { name: 'dateFrom', in: 'query' }, { name: 'dateTo', in: 'query' }, { name: 'search', in: 'query' }] } },
     '/inventory/{productId}': { get: { summary: 'Get a product stock balance and valuation', security: [{ cookieAuth: [] }] } },

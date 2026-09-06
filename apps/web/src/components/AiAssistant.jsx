@@ -74,7 +74,7 @@ export function AiAssistant() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+    <div className="no-print fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
       {open && (
         <div className="flex h-[32rem] w-[22rem] max-w-[90vw] flex-col overflow-hidden rounded-2xl border border-borderSoft bg-white shadow-soft sm:w-96">
           <div className="flex items-center justify-between gap-2 bg-navy px-4 py-3 text-white">

@@ -1,10 +1,11 @@
 import { CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '../components/Button.jsx';
 import { apiRequest } from '../lib/api.js';
 import { analyticsApi } from '../lib/masterDataApi.js';
-import { formatMoney } from '../lib/format.js';
+import { formatDate, formatMoney } from '../lib/format.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const dashboardMeta = {
@@ -20,7 +21,7 @@ const dashboardMeta = {
   },
   CONTACT: {
     title: 'Contact Portal',
-    subtitle: 'Contact access for future invoice, bill, and payment status views.',
+    subtitle: 'Contact access for invoice, bill, and payment status views.',
     path: '/contact/dashboard',
   },
 };
@@ -33,9 +34,9 @@ export function Dashboard() {
   const { user } = useAuth();
   const meta = dashboardMeta[user.role];
 
-  if (user.role === 'CONTACT') return (
-    <div className="space-y-6"><div className="rounded-2xl bg-navy px-6 py-8 text-white shadow-card"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">Urban Furniture</p><h1 className="mt-2 text-3xl font-bold">{meta.title}</h1><p className="mt-1 text-sm text-white/72">Your portal does not expose internal company analytics.</p></div><AccountDirectory currentUser={user}/></div>
-  );
+  if (user.role === 'CONTACT') {
+    return <ContactPortalDashboard user={user} />;
+  }
   return (
     <div className="space-y-6">
       <div className="rounded-2xl bg-navy px-6 py-8 text-white shadow-card">
@@ -192,3 +193,143 @@ function InfoCard({ label, value, success = false }) {
     </div>
   );
 }
+
+function ContactPortalDashboard({ user }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const isVendor = user.accountType === 'VENDOR';
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiRequest('/portal/summary');
+      setData(res.summary);
+    } catch (err) {
+      setError(err.message || 'Failed to load portal summary.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-white/80 bg-white p-8 shadow-card text-center text-muted">
+        Loading your portal overview...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl bg-danger/10 p-6 text-danger shadow-card">
+        <p className="font-semibold">{error}</p>
+        <button onClick={load} className="mt-3 text-sm font-bold underline">Retry</button>
+      </div>
+    );
+  }
+
+  const kpis = data?.kpis || {};
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl bg-navy px-6 py-8 text-white shadow-card">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">Urban Furniture Portal</p>
+        <h1 className="mt-2 text-3xl font-bold">{isVendor ? 'Vendor Portal' : 'Customer Portal'}</h1>
+        <p className="mt-1 text-sm text-white/72">
+          Welcome, {user.loginId}. Access your authorized {isVendor ? 'bills' : 'invoices'}, payment history, and business documents.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <InfoCard
+          label={isVendor ? 'Outstanding Payable' : 'Outstanding Balance'}
+          value={formatMoney(isVendor ? kpis.outstandingPayable : kpis.outstandingAmount)}
+        />
+        <InfoCard
+          label={isVendor ? 'Total Bills' : 'Total Invoices'}
+          value={String(isVendor ? kpis.totalBills : kpis.totalInvoices)}
+        />
+        <InfoCard
+          label="Paid Documents"
+          value={String(isVendor ? kpis.paidBills : kpis.paidInvoices)}
+          success
+        />
+        <InfoCard
+          label="Overdue / Unpaid"
+          value={`${kpis.unpaidInvoices || kpis.unpaidBills || 0} unpaid (${kpis.overdueInvoices || kpis.overdueBills || 0} overdue)`}
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Documents */}
+        <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">{isVendor ? 'Recent Vendor Bills' : 'Recent Customer Invoices'}</h2>
+            <Link to={isVendor ? '/purchases/bills' : '/sales/invoices'} className="text-sm font-semibold text-indigo hover:underline">
+              View All
+            </Link>
+          </div>
+          {(isVendor ? data.recentBills : data.recentInvoices)?.length > 0 ? (
+            <div className="space-y-3">
+              {(isVendor ? data.recentBills : data.recentInvoices).map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
+                  <div>
+                    <Link to={isVendor ? `/purchases/bills/${doc.id}` : `/sales/invoices/${doc.id}`} className="font-bold text-navy hover:text-indigo">
+                      {doc.billNumber || doc.invoiceNumber}
+                    </Link>
+                    <p className="text-xs text-muted">Due: {formatDate(doc.dueDate)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-ink">{formatMoney(doc.totalAmount)}</p>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${
+                      doc.paymentStatus === 'PAID' ? 'bg-success/10 text-success' : (doc.paymentStatus === 'PARTIALLY_PAID' ? 'bg-amber-100 text-amber-700' : 'bg-danger/10 text-danger')
+                    }`}>
+                      {doc.paymentStatus || 'UNPAID'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No documents found.</p>
+          )}
+        </div>
+
+        {/* Recent Payments */}
+        <div className="rounded-2xl border border-white/80 bg-white p-5 shadow-card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-ink">Recent Payments</h2>
+            <Link to="/payments" className="text-sm font-semibold text-indigo hover:underline">
+              View All
+            </Link>
+          </div>
+          {data.recentPayments?.length > 0 ? (
+            <div className="space-y-3">
+              {data.recentPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
+                  <div>
+                    <p className="font-bold text-navy">{p.paymentNumber}</p>
+                    <p className="text-xs text-muted">{formatDate(p.paymentDate)} · {p.method}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-ink">{formatMoney(p.amount)}</p>
+                    <span className="inline-block rounded-full bg-success/10 px-2 py-0.5 text-xs font-bold text-success">
+                      {p.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No payment transactions recorded yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+

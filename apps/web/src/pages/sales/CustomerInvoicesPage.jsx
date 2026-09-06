@@ -17,6 +17,7 @@ import { Table, Td, Th, Tr } from '../../components/Table.jsx';
 import { FilterSelect, SearchBar, Toolbar } from '../../components/Toolbar.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { formatDate, formatMoney } from '../../lib/format.js';
+import { useAuth } from '../../lib/AuthContext.jsx';
 import { contactsApi, productsApi, salesApi } from '../../lib/masterDataApi.js';
 import { useDebouncedValue, useResourceList } from '../../lib/useResourceList.js';
 
@@ -28,7 +29,9 @@ const STATUS_OPTIONS = [
 ];
 
 export function CustomerInvoicesPage() {
+  const { user } = useAuth();
   const { notify } = useToast();
+  const isContact = user?.role === 'CONTACT';
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -90,10 +93,12 @@ export function CustomerInvoicesPage() {
         title="Customer Invoices"
         subtitle="Draft and posted receivable documents"
         actions={
-          <Button type="button" onClick={() => { setPrefill(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" />
-            New Invoice
-          </Button>
+          !isContact && (
+            <Button type="button" onClick={() => { setPrefill(null); setFormOpen(true); }}>
+              <Plus className="h-4 w-4" />
+              New Invoice
+            </Button>
+          )
         }
       />
 
@@ -106,7 +111,11 @@ export function CustomerInvoicesPage() {
         {loading && <LoadingTable columns={5} />}
         {!loading && error && <ErrorState message={error} onRetry={reload} />}
         {!loading && !error && invoices.length === 0 && (
-          <EmptyState icon={FileText} title="No customer invoices found." action={<Button type="button" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />New Invoice</Button>} />
+          <EmptyState
+            icon={FileText}
+            title="No customer invoices found."
+            action={!isContact && <Button type="button" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />New Invoice</Button>}
+          />
         )}
 
         {!loading && !error && invoices.length > 0 && (
@@ -139,7 +148,7 @@ export function CustomerInvoicesPage() {
                       <Link to={`/sales/invoices/${invoice.id}`}>
                         <RowActionButton label="View invoice" icon={Eye} onClick={() => {}} />
                       </Link>
-                      {invoice.status === 'DRAFT' && (
+                      {!isContact && invoice.status === 'DRAFT' && (
                         <>
                           <RowActionButton label="Post invoice" icon={postingId === invoice.id ? Loader2 : Send} onClick={() => postInvoice(invoice)} />
                           <RowActionButton label="Cancel invoice" icon={XCircle} tone="danger" onClick={() => setCancelTarget(invoice)} />
